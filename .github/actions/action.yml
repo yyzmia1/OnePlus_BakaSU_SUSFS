@@ -721,9 +721,6 @@ runs:
         KSU_COMMIT_SHA=$(git rev-parse HEAD)
         echo "KSU_COMMIT_SHA=$KSU_COMMIT_SHA" >> $GITHUB_ENV
         
-        # 默认 ReSukiSU 现代分支不需要额外的 Hooks 补丁
-        echo "NEED_HOOKS=false" >> $GITHUB_ENV
-        
         echo "✅ ReSukiSU added (commit: ${KSU_COMMIT_SHA:0:8})"
         echo "::endgroup::"
 
