@@ -719,8 +719,8 @@ runs:
         # 获取 Commit Hash 
         cd KernelSU
         KSU_COMMIT_SHA=$(git rev-parse HEAD)
-        cd ..
         echo "KSU_COMMIT_SHA=$KSU_COMMIT_SHA" >> $GITHUB_ENV
+        cd ..
         echo "CONFIG_KPM=y" >> common/arch/arm64/configs/gki_defconfig
         echo "CONFIG_KALLSYMS=y" >> common/arch/arm64/configs/gki_defconfig
         echo "CONFIG_KALLSYMS_ALL=y" >> common/arch/arm64/configs/gki_defconfig
