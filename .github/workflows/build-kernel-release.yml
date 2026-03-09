@@ -535,7 +535,7 @@ jobs:
       REPO_OWNER: ${{ github.repository_owner }}
       REPO_NAME: ${{ github.event.repository.name }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_NAME: '*TEST BUILD* OnePlus Kernels With KernelSU Next & SUSFS v2.0.0 *TEST BUILD*'
+      RELEASE_NAME: '*TEST BUILD* OnePlus Kernels With ReSukiSU & SUSFS v2.0.0 *TEST BUILD*'
       SUSFS_BASE_VERSION: 'v2.0.0'
     steps:
       - name: 📥 Checkout code
@@ -613,7 +613,7 @@ jobs:
           [ -z "$SUSFS_A16" ] && SUSFS_A16="gki-android16-6.12 (auto)"
           
           cat << EOF > release_notes.md
-          # 🎯 OnePlus Kernels with KernelSU Next & SUSFS $SUSFS_BASE_VERSION
+          # 🎯 OnePlus Kernels with ReSukiSU & SUSFS $SUSFS_BASE_VERSION
           
           > **Build Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')  
           > **Build ID:** \`${{ github.run_id }}\`  
@@ -711,17 +711,7 @@ jobs:
           ## ✨ Features & Capabilities
           
           ### 🔐 Root Management
-          EOF
-          if [ -n "$KSUN_BRANCH" ]; then
-            cat << EOF >> release_notes.md
-          - **KernelSU Next** - Next-generation kernel-level root solution
-          EOF
-          elif [ -n "$KSU_BRANCH" ]; then
-            cat << EOF >> release_notes.md
-          - **KernelSU** - Kernel-level root solution
-          EOF
-          fi
-          cat << EOF >> release_notes.md
+          - **ReSukiSU** - Kernel-level root solution
           - **SUSFS $SUSFS_BASE_VERSION** - Advanced hiding and security features
           - **Magic Mount Support** - Seamless file system modifications
           - **Manual Hooks** - scope_min_manual_hooks_v1.4 for better compatibility
@@ -758,27 +748,8 @@ jobs:
           ## 📱 Manager Applications
           
           ### Official Manager
-          EOF
-          if [ -n "$KSUN_BRANCH" ]; then
-            cat << EOF >> release_notes.md
-          - **KernelSU Next Manager**  
-            → [GitHub Release](https://github.com/KernelSU-Next/KernelSU-Next/releases)
-          EOF
-          elif [ -n "$KSU_BRANCH" ]; then
-            cat << EOF >> release_notes.md
-          - **KernelSU Manager**  
-            → [GitHub Release](https://github.com/tiann/KernelSU/releases)
-          EOF
-          fi
-          cat << EOF >> release_notes.md
-          ### Community Managers
-          - **WildKSU Manager** (Recommended for additional features)  
-            → [GitHub Release](https://github.com/WildKernels/Wild_KSU/releases)
-          
-          ### Required Module
-          - **KSU SUSFS Module** (Required for SUSFS features)  
-            → [GitHub Release](https://github.com/sidex15/ksu_module_susfs/releases)
-          
+          - **ReSukiSU**  
+            → [Offical Documentation](https://resukisu.github.io/guide/install.html#Get-manager)
           ### Recomended Flasher
           - **Kernel Flasher** (Required for flashing AnyKernel3 zips and backups and OTA)  
             → [GitHub Release](https://github.com/fatalcoder524/KernelFlasher/releases)
@@ -796,8 +767,7 @@ jobs:
           1. Download the appropriate ZIP for your device.
           2. Flash the ZIP file using Kernel Flasher.
           3. Reboot system.
-          4. Install KernelSU-Next/WildSU Manager.
-          5. Install SUSFS module from manager.
+          4. Install ReSukiSU Manager.
           
           ---
           
@@ -822,8 +792,7 @@ jobs:
           
           ## 🙏 Credits
           
-          - **KernelSU Next Team** - Root solution
-          - **KernelSU Team** - Root solution
+          - **ReSukiSU Next Team** - Root solution
           - **simonpunk** - SUSFS development
           - **OnePlus** - Kernel source code
           - **Community Contributors** - Testing and feedback
