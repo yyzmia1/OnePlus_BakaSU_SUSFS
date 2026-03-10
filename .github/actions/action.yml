@@ -710,7 +710,7 @@ runs:
         
         # 使用 ReSukiSU 官方提供的安装脚本
         # 这里默认接入 builtin 模式
-        curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
+        curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
         
         # 记录版本信息（模拟你原脚本的记录方式）
         # ReSukiSU 通常会自动处理 Makefile，这里我们手动标记以便后续打包命名
