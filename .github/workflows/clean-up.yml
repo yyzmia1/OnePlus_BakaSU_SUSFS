@@ -1,4 +1,4 @@
-name: Cleanup CCache 🧹 
+name: 🧹 Cleanup CCache
 
 on:
   workflow_dispatch:
@@ -75,6 +75,7 @@ on:
           - OP-PAD-PRO
           - OP-PAD-MT6983
           - OP-PAD-LITE
+          - OP-PAD-GO-2
       
       cache_pattern:
         type: choice
@@ -611,11 +612,14 @@ jobs:
                     console.log(`   Size: ${sizeMB} MB | Age: ${agedays} days | Type: ${decision.category}`);
                     
                     try {
-                      await github.rest.actions.deleteActionsCacheById({
+                      // Use deleteActionsCacheByKey which is safer for caches created across different refs
+                      await github.rest.actions.deleteActionsCacheByKey({
                         owner,
                         repo,
-                        cache_id: cache.id
+                        key: cache.key,
+                        ref: cache.ref || 'refs/heads/main'
                       });
+                      
                       totalDeleted++;
                       totalSize += cache.size_in_bytes;
                       
