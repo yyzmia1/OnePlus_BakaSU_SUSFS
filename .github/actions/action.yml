@@ -660,16 +660,34 @@ runs:
           echo "💥 All attempts failed"
           return 1
         }
+
+        retry_download() {
+          local url="$1"
+          local max_attempts=3
+          local attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            echo "🔄 Attempt $attempt/$max_attempts: downloading $url"
+            
+            wget "$url" && {
+              echo "✅ Success"
+              return 0
+            }
+            
+            echo "❌ Failed, cleaning up..."
+            rm -rf "$dir" 2>/dev/null
+            sleep $((attempt++ * 5))
+          done
+          
+          echo "💥 All attempts failed"
+          return 1
+        }
         
         retry_clone "https://github.com/TheWildJames/AnyKernel3.git" "$ANYKERNEL_BRANCH"
         retry_clone "https://github.com/TheWildJames/kernel_patches.git"
 
         echo "Downloading SukiSU_KernelPatch..."
-        curl -s https://api.github.com/repos/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest \
-          | grep "browser_download_url" \
-          | grep "patch_linux" \
-          | cut -d '"' -f 4 \
-          | wget -qi -
+        retry_download "$(curl -s https://api.github.com/repos/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest | grep "browser_download_url" | grep "patch_linux" | cut -d '"' -f 4)"
         chmod +x patch_linux
         
         if [ "${{ env.OP_SUSFS }}" = true ]; then
