@@ -1459,12 +1459,14 @@ runs:
           exit 1
         fi
 
-        echo "Patching kernel to add KPM support..."
-        cd "$BOOT_DIR"
-        $SUKISU_KERNEL_PATCH
-        rm ./Image
-        mv ./oImage ./Image
-        cd ../../../..
+        if [ "${{ inputs.ksu_type }}" = "ReSukiSU" ]; then
+          echo "Patching kernel to add KPM support..."
+          cd "$BOOT_DIR"
+          $SUKISU_KERNEL_PATCH
+          rm ./Image
+          mv ./oImage ./Image
+          cd ../../../..
+        fi
         
         IMG_SIZE=$(stat -c%s "$IMG")
         
