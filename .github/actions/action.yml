@@ -944,9 +944,9 @@ runs:
           fi
         fi
         echo "✅ SUSFS patches applied"
-        
+
         echo "Add SUSFS Configuration Settings"
-        cat >> "$COMMON_KERNEL_CONFIG" <<EOF
+        cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF
         CONFIG_KSU_SUSFS=y
         CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
         CONFIG_KSU_SUSFS_SUS_PATH=y
