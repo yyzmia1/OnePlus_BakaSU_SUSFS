@@ -38,7 +38,7 @@ jobs:
           MSG_TEXT+="<b>🏷️ Release Tag:</b> <code>${LATEST_TAG}</code>%0A"
           MSG_TEXT+="<b>🔐 Root Solution:</b> Auto-detected%0A"
           MSG_TEXT+="━━━━━━━━━━━━━━━━━━%0A"
-          MSG_TEXT+="<b>📦 Device Builds & Downloads:</b>%0A%0A"
+          MSG_TEXT+="<b>📦 Device Builds %26 Downloads:</b>%0A%0A"
           
           ASSETS=$(gh api repos/${{ github.repository }}/releases/latest --jq '.assets[].name' 2>/dev/null || true)
           
