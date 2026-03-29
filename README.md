@@ -125,8 +125,8 @@ If you encounter any issues or need help, feel free to:
 
 <div align="center">
   
-[![Telegram](https://img.shields.io/badge/Telegram-fatalcoder524-blue?logo=telegram)](https://t.me/anonymous_yolo)
-[![Telegram Group](https://img.shields.io/badge/Telegram-WildKernels-blue?logo=telegram)](https://t.me/WildKernels)
+[![Telegram](https://img.shields.io/badge/Telegram-huangdihd-blue?logo=telegram)](https://t.me/huangdihd)
+[![Telegram Group](https://img.shields.io/badge/Telegram-huangdihd-WildKernels-blue?logo=telegram)](https://t.me/huangdihd_wildkernel)
 
 </div>
 
