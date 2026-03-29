@@ -30,12 +30,6 @@ jobs:
           INPUT_MSG_TYPE="${{ inputs.msg_type }}"
           INPUT_CONTENT="${{ inputs.content }}"
           
-          # 校验关键环境变量
-          if [ -z "$BOT_TOKEN" ] || [ -z "$CHAT_ID" ]; then
-            echo "错误：BOT_TOKEN 或 CHAT_ID 未配置"
-            exit 1
-          fi
-          
           # 构造 HTML 格式消息内容，适配Telegram转义
           TEXT="<b>New Notifications: </b>%0A%0A"
           TEXT+="<b>Notification type：</b><code>${INPUT_MSG_TYPE}</code>%0A%0A"
