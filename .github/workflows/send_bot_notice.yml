@@ -33,7 +33,6 @@ jobs:
           
           echo "✅ Found latest Release Tag: $LATEST_TAG"
           
-          # Use pure standard text formatting (No more %0A or %26 hacks!)
           MSG_TEXT="🧪 <b>[TEST] OnePlus Kernel Release!</b>\n"
           MSG_TEXT+="━━━━━━━━━━━━━━━━━━\n"
           MSG_TEXT+="<b>🏷️ Release Tag:</b> <code>${LATEST_TAG}</code>\n"
@@ -46,7 +45,6 @@ jobs:
           if [ -z "$ASSETS" ]; then
             MSG_TEXT+="<i>⚠️ No assets found in this release.</i>\n\n"
           else
-            # 使用强悍的 grep 和 awk 命令瞬间去重提取机型和系统
             MODELS=$(echo "$ASSETS" | grep '\.zip$' | awk -F'_' '{print $2}' | sort -u | paste -sd ", " - || echo "Various")
             OS_VERS=$(echo "$ASSETS" | grep '\.zip$' | awk -F'_' '{print $3}' | sort -u | paste -sd ", " - || echo "Various")
             ZIP_COUNT=$(echo "$ASSETS" | grep -c '\.zip$' || true)
@@ -61,7 +59,6 @@ jobs:
           
           echo "Constructing secure JSON payload..."
           
-          # Safely encode everything into a JSON payload using jq
           PAYLOAD=$(jq -n \
             --arg chat_id "$TG_CHAT_ID" \
             --arg text "$MSG_TEXT" \
