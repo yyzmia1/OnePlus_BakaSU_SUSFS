@@ -46,23 +46,18 @@ jobs:
           if [ -z "$ASSETS" ]; then
             MSG_TEXT+="<i>⚠️ No assets found in this release.</i>\n\n"
           else
-            for filename in $ASSETS; do
-              if [[ "$filename" == *.zip ]]; then
-                rest="${filename#AK3_}"
-                IFS='_' read -ra parts <<< "$rest"
-                model="${parts[0]:-Unknown}"
-                os_version="${parts[1]:-OS}"
-                
-                dl_link="https://github.com/${{ github.repository }}/releases/download/${LATEST_TAG}/${filename}"
-                
-                MSG_TEXT+="📱 <b>${model} (${os_version})</b>\n"
-                MSG_TEXT+="↳ <a href=\"${dl_link}\">📥 Download ZIP</a>\n\n"
-              fi
-            done
+            # 使用强悍的 grep 和 awk 命令瞬间去重提取机型和系统
+            MODELS=$(echo "$ASSETS" | grep '\.zip$' | awk -F'_' '{print $2}' | sort -u | paste -sd ", " - || echo "Various")
+            OS_VERS=$(echo "$ASSETS" | grep '\.zip$' | awk -F'_' '{print $3}' | sort -u | paste -sd ", " - || echo "Various")
+            ZIP_COUNT=$(echo "$ASSETS" | grep -c '\.zip$' || true)
+            
+            MSG_TEXT+="<b>📦 Total Packages:</b> ${ZIP_COUNT} zips\n"
+            MSG_TEXT+="<b>📱 Supported Models:</b> ${MODELS}\n"
+            MSG_TEXT+="<b>💻 Supported OS:</b> ${OS_VERS}\n\n"
           fi
           
           MSG_TEXT+="━━━━━━━━━━━━━━━━━━\n"
-          MSG_TEXT+="<a href=\"https://github.com/${{ github.repository }}/releases/tag/${LATEST_TAG}\">📝 View Full Release Notes</a>"
+          MSG_TEXT+="👉 <a href=\"https://github.com/${{ github.repository }}/releases/tag/${LATEST_TAG}\"><b>📥 DOWNLOAD YOUR KERNEL HERE</b></a>"
           
           echo "Constructing secure JSON payload..."
           
