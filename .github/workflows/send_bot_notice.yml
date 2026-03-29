@@ -33,17 +33,18 @@ jobs:
           
           echo "✅ Found latest Release Tag: $LATEST_TAG"
           
-          MSG_TEXT="🧪 <b>[TEST] OnePlus Kernel Release!</b>%0A"
-          MSG_TEXT+="━━━━━━━━━━━━━━━━━━%0A"
-          MSG_TEXT+="<b>🏷️ Release Tag:</b> <code>${LATEST_TAG}</code>%0A"
-          MSG_TEXT+="<b>🔐 Root Solution:</b> Auto-detected%0A"
-          MSG_TEXT+="━━━━━━━━━━━━━━━━━━%0A"
-          MSG_TEXT+="<b>📦 Device Builds %26 Downloads:</b>%0A%0A"
+          # Use pure standard text formatting (No more %0A or %26 hacks!)
+          MSG_TEXT="🧪 <b>[TEST] OnePlus Kernel Release!</b>\n"
+          MSG_TEXT+="━━━━━━━━━━━━━━━━━━\n"
+          MSG_TEXT+="<b>🏷️ Release Tag:</b> <code>${LATEST_TAG}</code>\n"
+          MSG_TEXT+="<b>🔐 Root Solution:</b> Auto-detected\n"
+          MSG_TEXT+="━━━━━━━━━━━━━━━━━━\n"
+          MSG_TEXT+="<b>📦 Device Builds & Downloads:</b>\n\n"
           
           ASSETS=$(gh api repos/${{ github.repository }}/releases/latest --jq '.assets[].name' 2>/dev/null || true)
           
           if [ -z "$ASSETS" ]; then
-            MSG_TEXT+="<i>⚠️ No assets found in this release.</i>%0A%0A"
+            MSG_TEXT+="<i>⚠️ No assets found in this release.</i>\n\n"
           else
             for filename in $ASSETS; do
               if [[ "$filename" == *.zip ]]; then
@@ -54,22 +55,33 @@ jobs:
                 
                 dl_link="https://github.com/${{ github.repository }}/releases/download/${LATEST_TAG}/${filename}"
                 
-                MSG_TEXT+="📱 <b>${model} (${os_version})</b>%0A"
-                MSG_TEXT+="↳ <a href='${dl_link}'>📥 Download ZIP</a>%0A%0A"
+                MSG_TEXT+="📱 <b>${model} (${os_version})</b>\n"
+                MSG_TEXT+="↳ <a href=\"${dl_link}\">📥 Download ZIP</a>\n\n"
               fi
             done
           fi
           
-          MSG_TEXT+="━━━━━━━━━━━━━━━━━━%0A"
-          MSG_TEXT+="<a href='${{ github.server_url }}/${{ github.repository }}/releases/tag/${LATEST_TAG}'>📝 View Full Release Notes</a>"
+          MSG_TEXT+="━━━━━━━━━━━━━━━━━━\n"
+          MSG_TEXT+="<a href=\"https://github.com/${{ github.repository }}/releases/tag/${LATEST_TAG}\">📝 View Full Release Notes</a>"
           
-          echo "Sending message to Telegram..."
+          echo "Constructing secure JSON payload..."
+          
+          # Safely encode everything into a JSON payload using jq
+          PAYLOAD=$(jq -n \
+            --arg chat_id "$TG_CHAT_ID" \
+            --arg text "$MSG_TEXT" \
+            '{
+              chat_id: $chat_id,
+              parse_mode: "HTML",
+              disable_web_page_preview: true,
+              text: $text
+            }')
+          
+          echo "Sending message to Telegram API..."
           
           HTTP_RESPONSE=$(curl -s -w "%{http_code}" -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
-            -d chat_id="${TG_CHAT_ID}" \
-            -d parse_mode="HTML" \
-            -d disable_web_page_preview="true" \
-            -d text="${MSG_TEXT}")
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
             
           if [[ "$HTTP_RESPONSE" != *200 ]]; then
             echo "::error::Telegram push failed! Server response: $HTTP_RESPONSE"
