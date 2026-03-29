@@ -857,19 +857,21 @@ jobs:
           if [ "$ZIP_COUNT" -eq 0 ]; then
             MODELS="None"
             OS_VERS="None"
+            KSU_VERS="Unknown"
           else
-            # Extract models (2nd part) and OS versions (3rd part) from AK3_OP12_OOS15...zip
+            # Extract models (2nd part), OS versions (3rd part), and KSU versions (6th part) from AK3_OP12_OOS15_android15-6.6_ReSukiSU_30700...zip
             MODELS=$(printf "%s\n" "${ZIPS[@]}" | awk -F'/' '{print $NF}' | awk -F'_' '{print $2}' | sort -u | paste -sd ", " -)
             OS_VERS=$(printf "%s\n" "${ZIPS[@]}" | awk -F'/' '{print $NF}' | awk -F'_' '{print $3}' | sort -u | paste -sd ", " -)
+            KSU_VERS=$(printf "%s\n" "${ZIPS[@]}" | awk -F'/' '{print $NF}' | awk -F'_' '{print $6}' | sort -u | paste -sd ", " -)
           fi
           
-          echo "Found $ZIP_COUNT packages for models: $MODELS"
+          echo "Found $ZIP_COUNT packages for models: $MODELS, KSU Ver: $KSU_VERS"
           
           # Use pure Bash multi-line string. True newlines are preserved!
           MSG_TEXT="🚀 <b>OnePlus Kernel Build Successful!</b>
           ━━━━━━━━━━━━━━━━━━
           <b>🏷️ Release Tag:</b> <code>${{ env.NEW_TAG }}</code>
-          <b>🔐 Root Solution:</b> ${{ inputs.ksu_type }}
+          <b>🔐 Root Solution:</b> ${{ inputs.ksu_type }} (v${KSU_VERS})
           <b>🛡️ SUSFS Version:</b> ${{ env.SUSFS_BASE_VERSION }}
           <b>⚙️ Optimization:</b> ${{ inputs.optimize_level }} | Clean: ${{ inputs.clean_build }}
           ━━━━━━━━━━━━━━━━━━
@@ -900,7 +902,6 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
           
-          # Parse the response body and HTTP code (using your excellent logic)
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           RESPONSE_BODY=$(echo "$RESPONSE" | head -n -1)
 
