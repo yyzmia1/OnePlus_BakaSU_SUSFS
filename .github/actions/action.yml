@@ -593,7 +593,7 @@ runs:
         echo "::group::Clone dependencies"
         echo "Cloning AnyKernel3 and other dependencies..."
         
-        ANYKERNEL_BRANCH="master"
+        ANYKERNEL_BRANCH="gki-2.0"
         
         if [ "${{ env.OP_SUSFS }}" = true ]; then
           # Determine SUSFS branch/commit to use
@@ -682,7 +682,7 @@ runs:
           return 1
         }
         
-        retry_clone "https://github.com/coolzyd9107/AnyKernel3.git" "$ANYKERNEL_BRANCH"
+        retry_clone "https://github.com/huangdihd/AnyKernel3" "$ANYKERNEL_BRANCH"
         retry_clone "https://github.com/TheWildJames/kernel_patches.git"
 
         echo "Downloading SukiSU_KernelPatch..."
