@@ -918,10 +918,6 @@ jobs:
             cat << EOF >> release_notes.md
           - **KernelSU Manager**  
             → [GitHub Release](https://github.com/tiann/KernelSU/releases)
-          EOF
-          fi
-          if [ "$ksu_type" == "KSU" ]; then
-            cat << EOF >> release_notes.md
           ### Required Module
           - **KSU SUSFS Module** (Required for SUSFS features)  
             → [GitHub Release](https://github.com/sidex15/ksu_module_susfs/releases)
