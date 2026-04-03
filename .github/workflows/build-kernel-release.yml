@@ -38,9 +38,9 @@ on:
           - KSU
         default: ReSukiSU
       ksu_branch_or_hash:
-        description: 'KSU branch or commit hash (leave empty for default latest)'
+        description: 'KSU branch or commit hash'
         type: string
-        default: ''
+        default: 'main'
       optimize_level:
         description: "Compiler optimization level"
         required: true
