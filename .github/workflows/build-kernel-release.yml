@@ -927,7 +927,6 @@ jobs:
             → [GitHub Release](https://github.com/sidex15/ksu_module_susfs/releases)
           EOF
           cat << EOF >> release_notes.md
-          
           ### Recomended Flasher
           - **Kernel Flasher** (Required for flashing AnyKernel3 zips and backups and OTA)  
             → [GitHub Release](https://github.com/fatalcoder524/KernelFlasher/releases)
