@@ -85,7 +85,7 @@ jobs:
       susfs_hash_android15_6_6:  ${{ steps.set-matrix.outputs.susfs_hash_android15_6_6 }}
       susfs_hash_android16_6_12: ${{ steps.set-matrix.outputs.susfs_hash_android16_6_12 }}
       ksu_resolved_hash:    ${{ steps.set-matrix.outputs.ksu_resolved_hash }}
-      ksu_options_normalized: ${{ steps.set-matrix.outputs.ksu_options_normalized }}
+
     env:
       GH_TOKEN: ${{ github.token }}
       GH_HTTP_TIMEOUT: 600
@@ -107,8 +107,6 @@ jobs:
           input="${{ inputs.op_model }}"
           ksu_type="${{ inputs.ksu_type }}"
           ksu_hash="${{ inputs.ksu_branch_or_hash }}"
-          
-          echo "ksu_options_normalized=$ksu_options_normalized" >> $GITHUB_OUTPUT
           
           echo "[" > matrix.json
           mapfile -t all_json_files < <(find configs/ -name "*.json" -print0 | xargs -0 -n1)
@@ -182,12 +180,12 @@ jobs:
           
           echo "count=$count" >> "$GITHUB_OUTPUT"
           
-          ksu_type=$(echo "$ksu_options_normalized" | jq -r '.[0].type')
-          ksu_ref=$(echo "$ksu_options_normalized" | jq -r '.[0].hash')
+          ksu_type="${{ inputs.ksu_type }}"
+          ksu_ref="${{ inputs.ksu_branch_or_hash }}"
           
-          if [ "$ksu_type" == "KSUN" ]; then
-            KSU_REPO_OWNER="KernelSU-Next"
-            KSU_REPO_NAME="KernelSU-Next"
+          if [ "$ksu_type" == "ReSukiSU" ]; then
+            KSU_REPO_OWNER="ReSukiSU"
+            KSU_REPO_NAME="ReSukiSU"
           else
             KSU_REPO_OWNER="tiann"
             KSU_REPO_NAME="KernelSU"
@@ -353,8 +351,8 @@ jobs:
 
       - name: 📊 Build plan summary
         run: |
-          ksu_type="${{ fromJSON(steps.set-matrix.outputs.ksu_options_normalized)[0].type }}"
-          ksu_ref="${{ fromJSON(steps.set-matrix.outputs.ksu_options_normalized)[0].hash }}"
+          ksu_type="${{ inputs.ksu_type }}"
+          ksu_ref="${{ inputs.ksu_branch_or_hash }}"
           
           ksu_display=""
           if [ "$ksu_type" = "ReSukiSU" ] || [ "$ksu_type" = "KSU" ]; then
@@ -729,8 +727,8 @@ jobs:
             fi
           done
           
-          ksu_type="${{ fromJSON(needs.set-op-model.outputs.ksu_options_normalized)[0].type }}"
-          ksu_ref="${{ fromJSON(needs.set-op-model.outputs.ksu_options_normalized)[0].hash }}"
+          ksu_type="${{ inputs.ksu_type }}"
+          ksu_ref="${{ inputs.ksu_branch_or_hash }}"
           ksu_resolved_hash="${{ needs.set-op-model.outputs.ksu_resolved_hash }}"
           
           OPTIMIZE_LEVEL="${{ inputs.optimize_level }}"
