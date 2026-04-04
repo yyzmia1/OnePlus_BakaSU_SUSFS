@@ -1483,7 +1483,7 @@ runs:
         
         case "$OP_BRANCH" in
           wild/sm8750|wild/sm8850|wild/sm8845)
-            KCFLAGS_EXTRA="-mcpu=oryon-1 ${KCFLAGS_EXTRA}"
+            # KCFLAGS_EXTRA="-mcpu=oryon-1 ${KCFLAGS_EXTRA}" # Disabled due to bootloops with KPM/ReSukiSU patch_linux
             ;;
         esac
         
