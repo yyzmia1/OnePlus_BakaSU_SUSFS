@@ -1304,6 +1304,40 @@ runs:
         EOF
         
         patch -p1 -F 3 < "$KERNEL_PATCHES_FOLDER/common/IPv6_NAT_FIX.patch"
+    
+    - name: Add USB DWC3 & OTG Support
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Add USB DWC3 Configuration"
+        
+        cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF
+        CONFIG_USB_DWC3=y
+        CONFIG_USB_DWC3_DUAL_ROLE=y
+        CONFIG_USB_GADGET=y
+        CONFIG_USB_CONFIGFS=y
+        CONFIG_TYPEC=y
+        EOF
+
+        if [[ "${OP_BRANCH,,}${OP_SOC,,}" == *"mt"* ]]; then
+            echo "Detected MediaTek (mt). Adding MTK USB PHY configs..."
+            cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF
+        CONFIG_USB_DWC3_MTK=y
+        CONFIG_PHY_MTK_TPHY=y
+        EOF
+        elif [[ "${OP_BRANCH,,}${OP_SOC,,}" == *"sm"* ]]; then
+            echo "Detected Qualcomm (sm). Adding QCOM USB PHY configs..."
+            cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF
+        CONFIG_USB_DWC3_QCOM=y
+        CONFIG_PHY_QCOM_QMP=y
+        CONFIG_PHY_QCOM_USB_HS=y
+        EOF
+        else
+            echo "⚠️ Unrecognized hardware. Falling back to generic DWC3 configs."
+        fi
+
+        echo "✅ Dynamic USB DWC3 configs added"
+        echo "::endgroup::"
 
     - name: Add Build based configs
       shell: bash
