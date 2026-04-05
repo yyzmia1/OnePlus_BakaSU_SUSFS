@@ -769,7 +769,7 @@ jobs:
             feature_flags=$(jq -r --arg MODEL "$model" '
               .[] | 
               select(.model == $MODEL) |
-              "\(.hmbird // false)\t\(.susfs // false)\t\(.bbr // false)\t\(.bbg // false)\t\(.ttl // false)\t\(.ip_set // false)\t\(.unicode // false)\t\(.kpm // false)"
+              "\(.hmbird // false)\t\(.susfs // false)\t\(.bbr // false)\t\(.bbg // false)\t\(.ttl // false)\t\(.ip_set // false)\t\(.unicode // false)"
             ' <<< "$JSON_BUILD_DATA")
             
             features=""
@@ -777,7 +777,7 @@ jobs:
             if [[ -z "$feature_flags" ]]; then
               echo "Warning: No JSON entry found for model: $model" >&2
             else
-              IFS=$'\t' read -r hmbird susfs bbr bbg ttl ip_set unicode kpm <<< "$feature_flags"
+              IFS=$'\t' read -r hmbird susfs bbr bbg ttl ip_set unicode <<< "$feature_flags"
               
               # Build features string based on boolean values
               [[ "$hmbird" == "true" ]] && features+="🐦 HMBIRD "
@@ -787,7 +787,6 @@ jobs:
               [[ "$ttl" == "true" ]] && features+="🌐 TTL "
               [[ "$ip_set" == "true" ]] && features+="🧱 IP_SET & IPv6 NAT"
               [[ "$unicode" == "true" ]] && features+="🔧 Unicode Fix"
-              [[ "$kpm" == "true" ]] && features+="🔌 KPM "
             fi
             
             printf "| %-13s | %-10s | %-16s | %-30s |\n" \
@@ -866,7 +865,6 @@ jobs:
           fi
           cat << EOF >> release_notes.md
           - **SUSFS $SUSFS_BASE_VERSION** - Advanced hiding and security features
-          - **KPM Support** - Kernel Patch Module support
           EOF
           
           if [ "${ksu_ver_global:-0}" -lt 12884 ]; then
@@ -959,7 +957,6 @@ jobs:
           - Compiler optimizations (${{ inputs.optimize_level }}).
           - Additional General Optimisations.
           - Unicode Bypass Fix
-          - Added Kernel Patch Module (KPM) support.
           
           ### Previous Releases
           See [Releases Page](${{ github.server_url }}/${{ github.repository }}/releases)

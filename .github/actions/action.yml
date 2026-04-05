@@ -99,7 +99,6 @@ runs:
         lto="$OP_LTO"
         uname="$OP_UNAME"
         unicode="$OP_UNICODE"
-        kpm="$OP_KPM"
         c_compiler="$OP_C_COMPILER"
         rust_compiler="$OP_RUST_COMPILER"
         zyc_compiler="$OP_ZYC_COMPILER"
@@ -219,12 +218,6 @@ runs:
           errors+=("Input 'unicode' cannot be empty")
         elif [[ "$unicode" != "true" && "$unicode" != "false" ]]; then
           errors+=("Input 'unicode' contains invalid characters. Allowed: 'true' or 'false'. Got: '$unicode'")
-        fi
-
-        if [[ -z "$kpm" ]]; then
-          errors+=("Input 'kpm' cannot be empty")
-        elif [[ "$kpm" != "true" && "$kpm" != "false" ]]; then
-          errors+=("Input 'kpm' contains invalid characters. Allowed: 'true' or 'false'. Got: '$kpm'")
         fi
         
         # OP_C_COMPILER currently has no checks!
@@ -929,22 +922,6 @@ runs:
         echo "✅ ReSukiSU added (commit: ${KSU_COMMIT_SHA:0:8})"
         echo "::endgroup::"
 
-    - name: Add KPM Configuration
-      shell: bash
-      if: ${{ env.OP_KPM == 'true' }}
-      run: |
-        set -euo pipefail
-        echo "::group::Add KPM Configuration"
-        echo "Add KPM Configuration Settings"
-        cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF
-        CONFIG_KPM=y
-        CONFIG_KALLSYMS=y
-        CONFIG_KALLSYMS_ALL=y
-        CONFIG_KPROBES=y
-        EOF
-        echo "✅ KPM configuration added"
-        echo "::endgroup::"
-
     - name: Apply SUSFS Patches
       shell: bash
       if: ${{ env.OP_SUSFS == 'true' }}
@@ -1617,25 +1594,6 @@ runs:
         echo "============================================"
         echo "::endgroup::"
 
-    - name: Patch Kernel for KPM
-      shell: bash
-      if: ${{ env.OP_KPM == 'true' && inputs.ksu_type == 'ReSukiSU' }}
-      run: |
-        set -euo pipefail
-        echo "::group::Patch Kernel for KPM"
-        BOOT_DIR="$COMMON_KERNEL_FOLDER/out/arch/arm64/boot"
-        if [ ! -f "$BOOT_DIR/Image" ]; then
-          echo "::error::Kernel Image not found for patching at $BOOT_DIR/Image"
-          exit 1
-        fi
-        echo "Patching kernel at $BOOT_DIR to add KPM support..."
-        cd "$BOOT_DIR"
-        $SUKISU_KERNEL_PATCH
-        rm ./Image
-        mv ./oImage ./Image
-        echo "✅ KPM patching completed"
-        echo "::endgroup::"
-
     - name: 📊 ccache Post-Build Statistics
       id: ccache_stats
       if: ${{ always() && inputs.clean != 'true' }}
@@ -1841,7 +1799,6 @@ runs:
           echo "TTL: ${{ env.OP_TTL }}"
           echo "IP_SET & IPv6 NAT: ${{ env.OP_IP_SET }}"
           echo "Unicode Fix: ${{ env.OP_UNICODE }}"
-          echo "KPM: ${{ env.OP_KPM }}"
           echo ""
           echo "Image SHA256: ${{ steps.collect_stats.outputs.image_sha256 }}"
           echo "Compiler: ${CLANG_VERSION:-unknown}"
@@ -1906,7 +1863,6 @@ runs:
           echo "| **TTL** | ${{ env.OP_TTL }} |"
           echo "| **IP_SET & IPv6 NAT** | ${{ env.OP_IP_SET }} |"
           echo "| **Unicode Fix** | ${{ env.OP_UNICODE }} |"
-          echo "| **KPM** | ${{ env.OP_KPM }} |"
           
           echo ""
           echo "### 📊 Build Metrics"

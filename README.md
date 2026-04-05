@@ -72,7 +72,6 @@ Flashing this kernel will not void your warranty, but there is always a risk of 
 - 🛠️ **HMBIRD SCX**: Scheduler extensions for SM8750/MT6991 devices
 - 🖧 **BBRv1**: Improved TCP congestion control
 - ✅ **LTO**: Link Time Optimisation enabled
-- 🔌 **KPM**: Full KernelPatch Module (KPM) functionality for advanced kernel modifications and enhancements
 - 🚀 **Optimisation patches**: Memory, I/O, CPU scheduler, network and other general tunings
 - 🌐 **TTL Target Support**: Network packet manipulation
 - 🧱 **IP Set & IPv6 NAT Support**: Advanced firewall capabilities and IPv6 NAT Support
