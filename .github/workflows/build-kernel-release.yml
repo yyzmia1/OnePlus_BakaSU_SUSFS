@@ -51,6 +51,16 @@ on:
         description: 'Clean build (no ccache)'
         type: boolean
         default: false
+      debug:
+        description: 'Enable dumping debug related artifacts'
+        required: false
+        type: boolean
+        default: false
+      mirror_toolchains:
+        description: 'Do you want to sync toolchains before build? [99% runs not required]'
+        required: false
+        type: boolean
+        default: false
       build_timestamp:
         description: 'Custom kernel build timestamp for uname -a (e.g. "Tue Feb 10 10:01:02 UTC 2026"). Leave empty for current time.'
         type: string
@@ -58,11 +68,11 @@ on:
       android12-5_10_susfs_branch_or_commit:
         description: 'Enter SusFS Branch or commit hash for android12-5.10'
         type: string
-        default: ''      
+        default: ''
       android13-5_15_susfs_branch_or_commit:
         description: 'Enter SusFS Branch or commit hash for android13-5.15'
         type: string
-        default: ''      
+        default: ''
       android14-6_1_susfs_branch_or_commit:
         description: 'Enter SusFS Branch or commit hash for android14-6.1'
         type: string
@@ -163,6 +173,13 @@ jobs:
           
           filtered=$(jq -c "$jq_filter" matrix.json)
           count=$(jq 'length' <<<"$filtered")
+          
+          filtered=$(echo "$filtered" | jq '
+            sort_by(
+              (.os_version | gsub("OOS"; "") | tonumber) * -1,
+              .model
+            )
+          ')
           
           if [ "$count" -eq 0 ]; then
             echo "::error::No config files found for input '$input' after applying filters!"
@@ -392,6 +409,13 @@ jobs:
             --argjson hashes "$susfs_hashes_json" \
             '[.[] | . + {susfs_resolved_hash: ($hashes["\(.android_version)-\(.kernel_version)"] // "unknown")}]')
           
+          merged_matrix=$(echo "$merged_matrix" | jq '
+            sort_by(
+              (.os_version | gsub("OOS"; "") | tonumber? // 0) * -1,
+              .model
+            )
+          ')
+          
           # Recalculate wrapped with updated matrix and write output
           wrapped=$(jq -n --argjson items "$merged_matrix" '{ include: $items }')
           echo "matrix=$(jq -c . <<< "$wrapped")" >> "$GITHUB_OUTPUT"
@@ -419,7 +443,7 @@ jobs:
               ksu_display+="🔀 \`$ksu_type\`, \`$ksu_ref\` (\`${{ steps.set-matrix.outputs.ksu_resolved_hash }}\`)"
             fi
           fi
-
+          
           build_ts_input="${{ inputs.build_timestamp }}"
           if [ -z "$build_ts_input" ]; then
             build_ts_display="⏱️ auto (current build time)"
@@ -444,6 +468,8 @@ jobs:
           - Optimization: ${{ inputs.optimize_level }}
           - Clean Build/No Ccache: ${{ inputs.clean_build && '✅ Yes' || '❌ No' }}
           - Create Release: ${{ inputs.make_release && '✅ Yes' || '❌ No' }}
+          - Create Debug Artifacts: ${{ inputs.debug && '✅ Yes' || '❌ No' }}
+          - Sync toolchains: ${{ inputs.mirror_toolchains && '✅ Yes' || '❌ No' }}
           
           **SUSFS Configuration:**
           EOF
@@ -494,10 +520,20 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "> **⚠️ Android-Kernel Filter:** Only OOS15 and OOS16 devices will be built for \`${{ inputs.op_model }}\`" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
+  mirror_toolchain:
+    needs: set-op-model
+    if: ${{ inputs.mirror_toolchains }}
+    uses: ./.github/workflows/mirror-toolchains.yml
+    secrets: inherit
+
   build:
     name: build (${{ matrix.model }}, ${{ matrix.soc }}, ${{ matrix.branch }}, ${{ matrix.manifest }}, ${{ matrix.android_version }}, ${{ matrix.kernel_version }}, ${{ matrix.os_version }}, ${{ matrix.ksu_type }})
-    needs: set-op-model
+    needs: [set-op-model, mirror_toolchain]
+    if: |
+      !cancelled() &&
+      needs.set-op-model.result == 'success' &&
+      (needs.mirror_toolchain.result == 'success' || needs.mirror_toolchain.result == 'skipped')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -549,7 +585,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             git curl ca-certificates build-essential clang lld flex bison \
             libelf-dev libssl-dev libncurses-dev zlib1g-dev liblz4-tool \
-            libxml2-utils rsync unzip dwarves file python3 ccache jq bc dos2unix kmod libdw-dev elfutils
+            libxml2-utils rsync unzip dwarves file python3 ccache jq bc dos2unix kmod libdw-dev elfutils pigz
           sudo apt-get clean
           echo "✅ Dependencies installed"
           echo "::endgroup::"
@@ -563,16 +599,46 @@ jobs:
           echo "::endgroup::"
 
       - name: ♻️ Configure ccache (bounded)
-        if: ${{ inputs.clean_build != true }}
         run: |
+          echo "::group::Configure ccache environment"
+          set -euo pipefail
           if command -v ccache >/dev/null 2>&1; then
-            echo "::group::ccache configuration"
-            ccache -o max_size=1.0G
-            ccache -o compression=true
-            ccache -o compression_level=3
-            ccache -s
-            echo "::endgroup::"
+            CACHE_DIR="${{ github.workspace }}/.ccache"
+            mkdir -p "$CACHE_DIR"
+            
+            SETTINGS=(
+              "CCACHE_DIR=$CACHE_DIR"
+              "CCACHE_MAXSIZE=1G"
+              "CCACHE_COMPILERCHECK=content"
+              "CCACHE_BASEDIR=${GITHUB_WORKSPACE}"
+              "CCACHE_NOHASHDIR=true"
+              "CCACHE_IGNOREOPTIONS=--sysroot*"
+              "CCACHE_COMPRESSION=true"
+              "CCACHE_COMPRESSION_LEVEL=3"
+              "CCACHE_DIRECT=true"
+              "CCACHE_FILE_CLONE=true"
+              "CCACHE_INODE_CACHE=true"
+              "CCACHE_UMASK=002"
+              "CCACHE_SLOPPINESS=file_macro,time_macros,include_file_mtime,include_file_ctime,pch_defines,system_headers,locale"
+            )
+            
+            for setting in "${SETTINGS[@]}"; do
+              export "$setting"
+              echo "$setting" >> "$GITHUB_ENV"
+            done
+            
+            if ccache --help 2>&1 | grep -q 'depend_mode'; then
+              export CCACHE_DEPEND=true
+              echo "CCACHE_DEPEND=true" >> "$GITHUB_ENV"
+            fi
+            
+            echo "✅ ccache configured successfully"
+            echo "Current ccache configuration:"
+            ccache -p
+          else
+            echo "ccache not found, skipping configuration."
           fi
+          echo "::endgroup::"
 
       - name: 🧹 Prepare op_config_json (without KSU fields)
         id: prepare_config
@@ -582,7 +648,7 @@ jobs:
 
       - name: 🔨 Build Kernel
         id: build
-        uses: ./.github/actions
+        uses: ./.github/actions/build-kernel
         with:
           op_config_json: ${{ steps.prepare_config.outputs.config_json }}
           ksu_type: ${{ matrix.ksu_type }}
@@ -591,6 +657,8 @@ jobs:
           optimize_level: ${{ inputs.optimize_level }}
           build_timestamp: ${{ inputs.build_timestamp }}
           clean: ${{ inputs.clean_build }}
+          debug: ${{ inputs.debug }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📊 Build statistics
         id: build-stat
@@ -846,27 +914,50 @@ jobs:
               "\(.hmbird // false)\t\(.susfs // false)\t\(.bbr // false)\t\(.bbg // false)\t\(.ttl // false)\t\(.ip_set // false)\t\(.unicode // false)\t\(.ds // false)\t\(.ntsync // false)"
             ' <<< "$JSON_BUILD_DATA")
             
-            features=""
+            features=()
              # If no match found, skip or handle error
             if [[ -z "$feature_flags" ]]; then
               echo "Warning: No JSON entry found for model: $model" >&2
+              features_str="N/A"
             else
               IFS=$'\t' read -r hmbird susfs bbr bbg ttl ip_set unicode ds ntsync <<< "$feature_flags"
               
               # Build features string based on boolean values
-              [[ "$hmbird" == "true" ]] && features+="🐦 HMBIRD "
-              [[ "$susfs" == "true" ]] && features+="ඞ SusFS "
-              [[ "$bbr" == "true" ]] && features+="🚀 BBR "
-              [[ "$bbg" == "true" ]] && features+="🛡️ BBG "
-              [[ "$ttl" == "true" ]] && features+="🌐 TTL "
-              [[ "$ip_set" == "true" ]] && features+="🧱 IP_SET & IPv6 NAT"
-              [[ "$unicode" == "true" ]] && features+="🔧 Unicode Fix"
-              [[ "$ds" == "true" ]] && features+="💻 Droidspaces Support"
-              [[ "$ntsync" == "true" ]] && features+="🔃 NTSync Support"
+              [[ "$hmbird" == "true" ]] && features+=("🐦 HMBIRD")
+              [[ "$susfs" == "true" ]] && features+=("ඞ SusFS")
+              [[ "$bbr" == "true" ]] && features+=("🚀 BBR")
+              [[ "$bbg" == "true" ]] && features+=("🛡️ BBG")
+              [[ "$ttl" == "true" ]] && features+=("🌐 TTL")
+              [[ "$ip_set" == "true" ]] && features+=("🧱 IP_SET & IPv6 NAT")
+              [[ "$unicode" == "true" ]] && features+=("🔧 Unicode Fix")
+              [[ "$ds" == "true" ]] && features+=("💻 Droidspaces")
+              [[ "$ntsync" == "true" ]] && features+=("🔃 NTSync")
+              
+              total=${#features[@]}
+              if [ $total -eq 0 ]; then
+                features_str="N/A"
+              else
+                features_str=""
+                count=0
+                
+                for item in "${features[@]}"; do
+                  count=$((count + 1))
+                  
+                  features_str+="$item"
+                  
+                  if [ $count -lt $total ]; then
+                    if [ $((count % 3)) -eq 0 ]; then
+                      features_str+="<br>"
+                    else
+                      features_str+="   "
+                    fi
+                  fi
+                done
+              fi
             fi
             
-            printf "| %-13s | %-10s | %-16s | %-30s |\n" \
-              "$model" "$os_ver" "$kernel_ver" "$features" >> release_notes.md
+            printf "| %-13s | %-10s | %-16s | %-48s |\n" \
+              "$model" "$os_ver" "$kernel_ver" "$features_str" >> release_notes.md
           done
           
           if [ ${#device_info[@]} -gt 0 ]; then
