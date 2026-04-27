@@ -342,6 +342,14 @@ runs:
         DEBUG_ZIP_NAME="debug_${OP_MODEL}_${OP_OS_VERSION}.zip"
         echo "DEBUG_ZIP_NAME=$DEBUG_ZIP_NAME" >> "$GITHUB_ENV"
 
+    - name: Set Kernel build-tools to Path
+      shell: bash
+      run: |
+        # Set Kernel build-tools to Path
+        set -euo pipefail
+        echo "${KERNEL_PLATFORM_FOLDER}/prebuilts/kernel-build-tools/linux-x86/bin/" >> $GITHUB_PATH
+        echo "${KERNEL_PLATFORM_FOLDER}/prebuilts/kernel-build-tools/linux_musl-x86/bin/" >> $GITHUB_PATH
+
     - name: Get Kernel Version Info
       shell: bash
       run: |
@@ -528,6 +536,8 @@ runs:
         fi
         
         echo "CLANG_VERSION_SHORT=$short" >> "$GITHUB_ENV"
+        echo "$CLANG_BIN" >> $GITHUB_PATH
+        echo "LIBCLANG_PATH=$CLANG_BIN/../lib" >> "$GITHUB_ENV"
         
         echo "✅ Detected Clang: $CLANG_VERSION"
         echo "::endgroup::"
@@ -583,11 +593,16 @@ runs:
         echo "RUSTC_BIN_PATH=$RUSTC_BIN" >> "$GITHUB_ENV"
         RUSTC_VERSION="$("$RUSTC_BIN/rustc" --version | head -n1)"
         echo "RUSTC_VERSION=$RUSTC_VERSION" >> "$GITHUB_ENV"
+        echo "RUSTC=$RUSTC_BIN/rustc" >> "$GITHUB_ENV"
+        echo "$RUSTC_BIN" >> $GITHUB_PATH
         echo "✅ Detected RUSTC: $RUSTC_VERSION"
+        
         if [ "$BINDGEN_FOUND" = true ]; then
           echo "BINDGEN_BIN_PATH=$BINDGEN_BIN" >> "$GITHUB_ENV"
           BINDGEN_VERSION="$("$BINDGEN_BIN/bindgen" --version | head -n1)"
           echo "BINDGEN_VERSION=$BINDGEN_VERSION" >> "$GITHUB_ENV"
+          echo "$BINDGEN_BIN" >> $GITHUB_PATH
+          echo "BINDGEN=$BINDGEN_BIN/bindgen" >> "$GITHUB_ENV"
           echo "✅ Detected BINDGEN: $BINDGEN_VERSION"
         fi
         
@@ -598,6 +613,7 @@ runs:
       if: ${{ env.OP_RUST_BUILD == 'true'  && !env.BINDGEN_BIN_PATH }}
       run: |
         # Install bindgen via cargo (no full rustc needed)
+        set -euo pipefail
         echo "::group::Install bindgen only (no rustc)"
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
         source $HOME/.cargo/env
@@ -605,10 +621,27 @@ runs:
         # Install bindgen CLI only (~50-100MB total)
         cargo install bindgen-cli --version 0.69.5
         
+        BINDGEN=$(which bindgen)
+        BINDGEN_BIN=$(dirname $BINDGEN)
+        echo "$BINDGEN_BIN" >> $GITHUB_PATH
+        echo "BINDGEN=$BINDGEN" >> "$GITHUB_ENV"
+        
         # Verify
         bindgen --version
-        which bindgen
         echo "::endgroup::"
+
+    - name: Test Rust & bindgen
+      shell: bash
+      if: ${{ env.OP_RUST_BUILD == 'true' }}
+      run: |
+        # Test Rust & bindgen
+        set -euo pipefail
+        echo "::group::Test Rust & bindgen"
+        cd "$COMMON_KERNEL_FOLDER"
+        export RUSTTARGET="aarch64-linux-android"
+        make V=1 rustavailable
+        echo "::endgroup::"
+
 
     - name: Cache ccache
       uses: actions/cache@v5
@@ -625,6 +658,8 @@ runs:
       run: |
         echo "::group::Check ccache"
         set -euo pipefail
+        
+        echo "/usr/lib/ccache" >> $GITHUB_PATH
         
         echo "Current ccache configuration:"
         ccache -p
@@ -1364,6 +1399,9 @@ runs:
             ;;
         esac
         
+        echo "Patch to fix kernel panic caused by oplus_bsp_midas"
+        patch -p1 --forward < "$KERNEL_PATCHES_FOLDER/common/droidspaces/0001-Return-ghost-task-if-task-is-null-and-is-requested-b.patch"
+        
         cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF
         CONFIG_SYSVIPC=y
         CONFIG_DEVTMPFS=y
@@ -1495,19 +1533,6 @@ runs:
         export CXX="ccache clang++"
         export HOSTCC="ccache clang"
         export HOSTCXX="ccache clang++"
-        
-        BASE_PATH="/usr/lib/ccache:${CLANG_BIN_PATH}:${KERNEL_PLATFORM_FOLDER}/prebuilts/kernel-build-tools/linux-x86/bin/:${KERNEL_PLATFORM_FOLDER}/prebuilts/kernel-build-tools/linux_musl-x86/bin/"
-        
-        if [ -n "${RUSTC_BIN_PATH:-}" ]; then
-          export PATH="${BASE_PATH}:${RUSTC_BIN_PATH}:${PATH}"
-          export RUSTC="$RUSTC_BIN_PATH/rustc"
-          if [ "${{ env.OP_RUST_BUILD}}" = "true" ]; then
-            export LIBCLANG_PATH="$CLANG_BIN_PATH/../lib"
-            export BINDGEN="bindgen"
-          fi
-        else
-          export PATH="${BASE_PATH}:${PATH}"
-        fi
         
         if [ "${{ inputs.clean }}" = "false" ]; then
           echo "🚀 ccache-accelerated build"
@@ -1972,7 +1997,7 @@ runs:
         } >> "$GITHUB_STEP_SUMMARY"
 
     - name: Upload Debug Artifacts
-      if: ${{ always() && !cancelled() && inputs.debug }}
+      if: ${{ always() && !cancelled() && inputs.debug == 'true' }}
       uses: actions/upload-artifact@v7
       with:
         name: ${{ env.DEBUG_ZIP_NAME }}
