@@ -92,8 +92,10 @@ jobs:
           * Requirement: PROHIBITED to change the AnyKernel3 clone URL to upstream's.
           * Adherence: You must ensure the AnyKernel3 URL in `.github/actions/build-kernel/action.yml` remains `https://github.com/huangdihd/AnyKernel3`.
           5. Reject Upstream Kernel Suffix (WILD)
-          * Requirement: PROHIBITED to use `-OP-WILD` as the fallback `LOCALVERSION`.
-          * Adherence: Ensure the fallback logic in `.github/actions/build-kernel/action.yml` does not use `-OP-WILD`. Revert it if upstream changes it.
+          * Requirement: PROHIBITED to use `-OP-WILD` or `OP-WILD` anywhere.
+          * Adherence: 
+            - Ensure the fallback logic in `.github/actions/build-kernel/action.yml` does not use `-OP-WILD`.
+            - Ensure that the `"uname"` field in ANY JSON file inside the `configs/` directory is set to `"OP-RESUKISU"`. If upstream adds a new config with `"uname": "OP-WILD"`, you MUST change it to `"OP-RESUKISU"`.
 
           ## ✅ Allowed to Sync (FOCUS ON THESE)
           * Device Configurations: New device JSON files in the `configs/` directory (e.g., OP13, OP15, etc.).
