@@ -77,33 +77,36 @@ jobs:
           prompt: >
             ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'Check for upstream repository modifications from https://github.com/WildKernels/OnePlus_KernelSU_SUSFS. If there are new updates, merge them into the current branch, resolve any conflicts if necessary, and create a Pull Request. YOU MUST STRICTLY FOLLOW THESE MERGE GUIDELINES:
             
-            # 项目维护与上游合并指南 (OnePlus_KernelSU_SUSFS)
-            本项目是基于 WildKernels 的分支，但在核心逻辑和 Root 方案选择上保持了独立性。在执行 `git merge upstream/main` 时，必须严格遵守以下准则。
+            # Project Maintenance & Upstream Merge Guidelines (OnePlus_KernelSU_SUSFS)
+            This project is a fork of WildKernels, but maintains independence in core logic and Root solution selection. When executing `git merge upstream/main`, you must strictly adhere to the following guidelines.
 
-            ## 🚫 核心禁忌 (Strictly Forbidden)
-            1. 拒绝 Normalize 方案
-            * 背景：上游引入了一套基于 `ksu_options_normalized` 的矩阵生成逻辑。
-            * 要求：禁止 在 `.github/workflows/build-kernel-release.yml` 中引入任何包含 `normalized` 关键字的代码。
-            * 坚持：保持现有的 `set-matrix` 逻辑，即通过 `inputs.ksu_type` 手动选择分发的模式。
-            2. 拒绝 KernelSU-Next (KSUN)
-            * 背景：我们已将核心 Root 方案转向 ReSukiSU。
-            * 要求：禁止 在 `.github/actions/action.yml` (或相关的 build scripts) 的 `ksu_type` 选项中加入 `KSUN`。
-            * 坚持：核心 Root 方案必须仅保留 `KSU` 和 `ReSukiSU`。
+            ## 🚫 Strictly Forbidden
+            1. Reject Normalize Scheme
+            * Background: Upstream introduced a matrix generation logic based on `ksu_options_normalized`.
+            * Requirement: PROHIBITED to introduce any code containing the keyword `normalized` in `.github/workflows/build-kernel-release.yml`.
+            * Adherence: Maintain the existing `set-matrix` logic, which manually selects the distribution mode via `inputs.ksu_type`.
+            2. Reject KernelSU-Next (KSUN)
+            * Background: We have shifted our core Root solution to ReSukiSU.
+            * Requirement: PROHIBITED to add `KSUN` to the `ksu_type` options in `.github/actions/action.yml` (or related build scripts).
+            * Adherence: The core Root solution must only retain `KSU` and `ReSukiSU`.
 
-            ## ✅ 允许合并的内容 (Allowed to Merge)
-            * 设备配置：`configs/` 目录下的新设备 JSON 文件（如 OP13, OP15 等）。
-            * 新功能特性：如 `lxc_ds` (Droidspaces/LXC 支持)、`HMBIRD` 优化等功能性补丁。
-            * 性能优化：上游在 `set-op-model` 任务中引入的 GraphQL API 解析 hash 的逻辑（提速解析）。
-            * 编译器更新：对 Clang/Rust 工具链的路径优化或版本更新。
+            ## ✅ Allowed to Merge
+            * Device Configurations: New device JSON files in the `configs/` directory (e.g., OP13, OP15, etc.).
+            * New Features: Functional patches like `lxc_ds` (Droidspaces/LXC support), `HMBIRD` optimizations, etc.
+            * Performance Optimizations: Logic introduced by upstream in the `set-op-model` task to parse hashes via GraphQL API (speeding up parsing).
+            * Compiler Updates: Path optimizations or version updates for Clang/Rust toolchains.
 
-            ## 🛠️ 合并后的检查清单 (Post-Merge Checklist)
-            每次执行合并后，必须运行以下命令进行审计，如果不符合预期，请立即修正代码并提交：
-            1. 审计 ksu_type：`grep "KSUN" .github/actions/action.yml` 或 `build-kernel-release.yml`，预期结果：无匹配。
-            2. 审计 Normalize 逻辑：`grep "normalized" .github/workflows/build-kernel-release.yml`，预期结果：无匹配。
-            3. 审计 ReSukiSU 完整性：确保 action.yml 中 Add ReSukiSU 的步骤未被删除，且 README.md 中的项目描述未被上游覆盖。
+            ## 🛠️ Post-Merge Checklist
+            After each merge, you must audit the repository. If it does not meet expectations, fix the code immediately before submitting:
+            1. Audit ksu_type: Ensure `grep "KSUN" .github/actions/action.yml` or `build-kernel-release.yml` returns no matches.
+            2. Audit Normalize logic: Ensure `grep "normalized" .github/workflows/build-kernel-release.yml` returns no matches.
+            3. Audit ReSukiSU Integrity: Ensure the "Add ReSukiSU" steps in `action.yml` have not been deleted, and the project description in `README.md` has not been overwritten by upstream.
 
-            ## 📢 沟通准则
-            本项目优先保障 ReSukiSU 的兼容性与原有的工作流逻辑，任何破坏此平衡的上游更改都应在合并后立即手动剔除或还原。' || '' }}
+            ## ⚠️ Abort Condition (IMPORTANT)
+            If you detect that upstream has not fully completed their modification (e.g., missing files, broken logic that requires missing parts to compile successfully), you can actively ABANDON this merge. To do so, close the Pull Request (or do not create one) and leave a comment explaining what was incomplete from upstream.
+
+            ## 📢 Communication Guidelines
+            This project prioritizes ReSukiSU compatibility and the original workflow logic. Any upstream changes that disrupt this balance should be manually removed or reverted immediately after merging.' || '' }}
 
   set-matrix:
     name: Generate Test Matrix
