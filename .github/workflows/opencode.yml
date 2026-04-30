@@ -66,59 +66,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Prepare Prompt
-        id: prep
-        run: |
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            cat << 'EOF' > prompt.txt
-          Check for upstream repository modifications from https://github.com/WildKernels/OnePlus_KernelSU_SUSFS. If there are new updates, merge them into the current branch, resolve any conflicts if necessary, and create a Pull Request. YOU MUST STRICTLY FOLLOW THESE MERGE GUIDELINES:
-          
-          # Project Maintenance & Upstream Merge Guidelines (OnePlus_KernelSU_SUSFS)
-          This project is a fork of WildKernels, but maintains independence in core logic and Root solution selection. When executing `git merge upstream/main`, you must strictly adhere to the following guidelines.
-
-          ## 🚫 Strictly Forbidden
-          1. Reject Normalize Scheme
-          * Background: Upstream introduced a matrix generation logic based on `ksu_options_normalized`.
-          * Requirement: PROHIBITED to introduce any code containing the keyword `normalized` in `.github/workflows/build-kernel-release.yml`.
-          * Adherence: Maintain the existing `set-matrix` logic, which manually selects the distribution mode via `inputs.ksu_type`.
-          2. Reject KernelSU-Next (KSUN)
-          * Background: We have shifted our core Root solution to ReSukiSU.
-          * Requirement: PROHIBITED to add `KSUN` to the `ksu_type` options in `.github/actions/action.yml` (or related build scripts).
-          * Adherence: The core Root solution must only retain `KSU` and `ReSukiSU`.
-          3. Preserve Original Telegram Channel Links
-          * Background: Upstream merges might overwrite the Telegram channel links in `README.md` or other documentation to point to their own community.
-          * Requirement: PROHIBITED to replace our Telegram links with the upstream's links.
-          * Adherence: You must ensure that our original Telegram links (`https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`) are kept intact. Revert any changes to Telegram URLs made by the upstream.
-
-          ## ✅ Allowed to Merge
-          * Device Configurations: New device JSON files in the `configs/` directory (e.g., OP13, OP15, etc.).
-          * New Features: Functional patches like `lxc_ds` (Droidspaces/LXC support), `HMBIRD` optimizations, etc.
-          * Performance Optimizations: Logic introduced by upstream in the `set-op-model` task to parse hashes via GraphQL API (speeding up parsing).
-          * Compiler Updates: Path optimizations or version updates for Clang/Rust toolchains.
-
-          ## 🛠️ Post-Merge Checklist
-          After each merge, you must audit the repository. If it does not meet expectations, fix the code immediately before submitting:
-          1. Audit ksu_type: Ensure `grep "KSUN" .github/actions/action.yml` or `build-kernel-release.yml` returns no matches.
-          2. Audit Normalize logic: Ensure `grep "normalized" .github/workflows/build-kernel-release.yml` returns no matches.
-          3. Audit ReSukiSU Integrity: Ensure the "Add ReSukiSU" steps in `action.yml` have not been deleted, and the project description in `README.md` has not been overwritten by upstream.
-          4. Audit Telegram Links: Verify that the Telegram links in `README.md` still point to `https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`.
-
-          ## ⚠️ Abort Condition (IMPORTANT)
-          If you detect that upstream has not fully completed their modification (e.g., missing files, broken logic that requires missing parts to compile successfully), you can actively ABANDON this merge. To do so, close the Pull Request (or do not create one) and leave a comment explaining what was incomplete from upstream.
-
-          ## 📢 Communication Guidelines
-          This project prioritizes ReSukiSU compatibility and the original workflow logic. Any upstream changes that disrupt this balance should be manually removed or reverted immediately after merging.
-          EOF
-            
-            {
-              echo 'prompt<<EOF'
-              cat prompt.txt
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
-          else
-            echo "prompt=" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
         env:
@@ -126,7 +73,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
-          prompt: ${{ steps.prep.outputs.prompt }}
+          # 在 schedule 或 workflow_dispatch 触发时，注入 prompt 让 opencode 检测上游、合并并创建 PR
+          prompt: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'Check for upstream repository modifications. If there are new updates, merge them into the current branch, resolve any conflicts if necessary, and create a Pull Request.' || '' }}
 
   set-matrix:
     name: Generate Test Matrix
