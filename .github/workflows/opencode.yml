@@ -89,6 +89,10 @@ jobs:
             * Background: We have shifted our core Root solution to ReSukiSU.
             * Requirement: PROHIBITED to add `KSUN` to the `ksu_type` options in `.github/actions/action.yml` (or related build scripts).
             * Adherence: The core Root solution must only retain `KSU` and `ReSukiSU`.
+            3. Preserve Original Telegram Channel Links
+            * Background: Upstream merges might overwrite the Telegram channel links in `README.md` or other documentation to point to their own community.
+            * Requirement: PROHIBITED to replace our Telegram links with the upstream's links.
+            * Adherence: You must ensure that our original Telegram links (`https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`) are kept intact. Revert any changes to Telegram URLs made by the upstream.
 
             ## ✅ Allowed to Merge
             * Device Configurations: New device JSON files in the `configs/` directory (e.g., OP13, OP15, etc.).
@@ -101,6 +105,7 @@ jobs:
             1. Audit ksu_type: Ensure `grep "KSUN" .github/actions/action.yml` or `build-kernel-release.yml` returns no matches.
             2. Audit Normalize logic: Ensure `grep "normalized" .github/workflows/build-kernel-release.yml` returns no matches.
             3. Audit ReSukiSU Integrity: Ensure the "Add ReSukiSU" steps in `action.yml` have not been deleted, and the project description in `README.md` has not been overwritten by upstream.
+            4. Audit Telegram Links: Verify that the Telegram links in `README.md` still point to `https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`.
 
             ## ⚠️ Abort Condition (IMPORTANT)
             If you detect that upstream has not fully completed their modification (e.g., missing files, broken logic that requires missing parts to compile successfully), you can actively ABANDON this merge. To do so, close the Pull Request (or do not create one) and leave a comment explaining what was incomplete from upstream.
