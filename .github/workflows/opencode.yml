@@ -71,9 +71,7 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             cat << 'EOF' > prompt.txt
-          Check for upstream repository modifications from https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.
-          
-          Instead of doing a raw 'git merge' which brings in a massive amount of forbidden code that takes too long to revert, you should intelligently extract, apply, or cherry-pick only the allowed updates into the current branch, then create a Pull Request. YOU MUST STRICTLY FOLLOW THESE RULES:
+          Check for upstream repository modifications from https://github.com/WildKernels/OnePlus_KernelSU_SUSFS. If there are new updates, merge them into the current branch, resolve any conflicts if necessary, and create a Pull Request. YOU MUST STRICTLY FOLLOW THESE MERGE GUIDELINES:
           
           # Project Maintenance & Upstream Sync Guidelines (OnePlus_KernelSU_SUSFS)
           This project is a fork of WildKernels, but maintains independence in core logic and Root solution selection. You must strictly adhere to the following guidelines.
