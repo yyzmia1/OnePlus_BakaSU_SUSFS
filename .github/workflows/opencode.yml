@@ -222,27 +222,58 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Send TG Progress (Start)
+      - name: Send TG Progress
         if: always()
+        continue-on-error: true
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: |
-          if [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then exit 0; fi
+          if [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then
+            echo "Telegram secrets not configured!"
+            exit 0
+          fi
+          
           STATUS="${{ needs.test-build.result }}"
-          MSG="🤖 <b>Opencode PR Test Build Finished</b>%0A"
-          MSG="${MSG}<b>Result:</b> ${STATUS}%0A"
-          MSG="${MSG}<b>PR:</b> <a href=\"${{ github.event.pull_request.html_url }}\">#${{ github.event.pull_request.number }}</a>"
-          curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
-            -d chat_id="${TG_CHAT_ID}" \
-            -d parse_mode="HTML" \
-            -d text="${MSG}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          
+          EMOJI="✅"
+          if [ "$STATUS" != "success" ]; then EMOJI="❌"; fi
+          
+          MSG_TEXT="${EMOJI} <b>Opencode PR Test Build Finished</b>"$'\n'
+          MSG_TEXT+="━━━━━━━━━━━━━━━━━━"$'\n'
+          MSG_TEXT+="<b>Result:</b> <code>${STATUS}</code>"$'\n'
+          MSG_TEXT+="<b>PR:</b> <a href=\"${PR_URL}\">#${PR_NUM}</a>"$'\n'
+          MSG_TEXT+="━━━━━━━━━━━━━━━━━━"
+          
+          # Split TG_CHAT_ID by comma or space
+          IFS=' ,' read -r -a CHAT_IDS <<< "$TG_CHAT_ID"
+          
+          for ID in "${CHAT_IDS[@]}"; do
+            if [ -z "$ID" ]; then continue; fi
+            PAYLOAD=$(jq -n \
+              --arg chat_id "$ID" \
+              --arg text "$MSG_TEXT" \
+              '{
+                chat_id: $chat_id,
+                parse_mode: "HTML",
+                disable_web_page_preview: true,
+                text: $text
+              }')
+            
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" > /dev/null
+          done
 
       - name: Run opencode to fix build
         if: needs.test-build.result != 'success'
         uses: anomalyco/opencode/github@latest
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
+          # Provide GH_TOKEN so agent can trigger mirror workflow if cache is missing
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: "The matrix test build failed for one or more devices. Please check the GitHub Actions logs for the failed 'test-build' jobs to identify the compilation errors. Fix the code to resolve these compilation errors and push the updates to the PR branch.\n\nIF YOU ENCOUNTER A TOOLCHAIN CACHE ERROR (e.g., '[FATAL ERROR] Toolchain AnyKernel3... NOT FOUND in GitHub Release cache!'):\nThis means a newly added toolchain hasn't been mirrored to GitHub releases yet. You MUST manually trigger the mirror workflow for your PR branch using the following command in your terminal:\n`gh workflow run mirror-toolchains.yml --ref <your-pr-branch-name>`\nWait a minute for it to complete, and then trigger a new test build by pushing an empty commit."
