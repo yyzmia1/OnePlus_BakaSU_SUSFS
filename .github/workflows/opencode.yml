@@ -99,6 +99,9 @@ jobs:
           * Adherence: 
             - Ensure the fallback logic in `.github/actions/build-kernel/action.yml` does not use `-OP-WILD`.
             - Ensure that the `"uname"` field in ANY JSON file inside the `configs/` directory is set to `"OP-RESUKISU"`. If upstream adds a new config with `"uname": "OP-WILD"`, you MUST change it to `"OP-RESUKISU"`.
+          6. Preserve USB DWC3 & OTG Support
+          * Requirement: PROHIBITED to remove the "Add USB DWC3 & OTG Support" step.
+          * Adherence: You must ensure that the step named "Add USB DWC3 & OTG Support" in `.github/actions/build-kernel/action.yml` is kept intact. Do not delete or disable it during merge.
 
           ## ✅ Allowed to Sync (FOCUS ON THESE)
           * Device Configurations: New device JSON files in the `configs/` directory (e.g., OP13, OP15, etc.).
@@ -112,6 +115,7 @@ jobs:
           2. Audit Normalize logic: Ensure `grep "normalized" .github/workflows/build-kernel-release.yml` returns no matches.
           3. Audit ReSukiSU Integrity: Ensure the "Add ReSukiSU" steps in `action.yml` have not been deleted, and the project description in `README.md` has not been overwritten by upstream.
           4. Audit Telegram Links: Verify that the Telegram links in `README.md` still point to `https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`.
+          5. Audit USB DWC3: Verify that the "Add USB DWC3 & OTG Support" step in `action.yml` still exists.
 
           ## ⚠️ Abort Condition (IMPORTANT)
           If you detect that upstream has not fully completed their modification (e.g., missing files, broken logic), actively ABANDON this sync. Do not create a PR, or close it, and leave a comment explaining what was incomplete.
@@ -130,6 +134,7 @@ jobs:
         uses: anomalyco/opencode/github@latest
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
+          # Do NOT provide GITHUB_TOKEN here to keep opencode-agent identity
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: ${{ steps.prep.outputs.prompt }}
@@ -272,11 +277,11 @@ jobs:
         uses: anomalyco/opencode/github@latest
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
-          # Provide GH_TOKEN so agent can trigger mirror workflow if cache is missing
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use GH_PAT if available (to trigger recursive builds), fallback to GITHUB_TOKEN
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
-          prompt: "The matrix test build failed for one or more devices. Please check the GitHub Actions logs for the failed 'test-build' jobs to identify the compilation errors. Fix the code to resolve these compilation errors and push the updates to the PR branch.\n\nIF YOU ENCOUNTER A TOOLCHAIN CACHE ERROR (e.g., '[FATAL ERROR] Toolchain AnyKernel3... NOT FOUND in GitHub Release cache!'):\nThis means a newly added toolchain hasn't been mirrored to GitHub releases yet. You MUST manually trigger the mirror workflow for your PR branch using the following command in your terminal:\n`gh workflow run mirror-toolchains.yml --ref <your-pr-branch-name>`\nWait a minute for it to complete, and then trigger a new test build by pushing an empty commit."
+          prompt: "The matrix test build failed for one or more devices. Please check the GitHub Actions logs for the failed 'test-build' jobs to identify the compilation errors. Fix the code to resolve these compilation errors and push the updates to the PR branch. NOTE: If you use GH_TOKEN (fallback) to push, it might not re-trigger the build. If that happens, please warn the user to manually re-run.\n\nIF YOU ENCOUNTER A TOOLCHAIN CACHE ERROR (e.g., '[FATAL ERROR] Toolchain AnyKernel3... NOT FOUND in GitHub Release cache!'):\nThis means a newly added toolchain hasn't been mirrored to GitHub releases yet. You MUST manually trigger the mirror workflow for your PR branch using the following command in your terminal:\n`gh workflow run mirror-toolchains.yml --ref <your-pr-branch-name>`\nWait a minute for it to complete, and then trigger a new test build by pushing an empty commit."
 
       - name: Fail the workflow
         if: needs.test-build.result != 'success'
