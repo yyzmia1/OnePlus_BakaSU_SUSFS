@@ -99,8 +99,10 @@ jobs:
           * Requirement: PROHIBITED to replace our Telegram links with the upstream's links.
           * Adherence: You must ensure that our original Telegram links (`https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`) are kept intact in `README.md`.
           4. Preserve AnyKernel3 Repository
-          * Requirement: PROHIBITED to change the AnyKernel3 clone URL to upstream's.
-          * Adherence: You must ensure the AnyKernel3 URL in `.github/actions/build-kernel/action.yml` remains `https://github.com/huangdihd/AnyKernel3`.
+          * Requirement: PROHIBITED to change the AnyKernel3 clone URL or repository reference to upstream's.
+          * Adherence: 
+            - Ensure the AnyKernel3 URL in `.github/actions/build-kernel/action.yml` remains `https://github.com/huangdihd/AnyKernel3`.
+            - Ensure any AnyKernel3 or "wild" remote fetch URLs in ALL XML files under `manifests/` directory point to `https://github.com/huangdihd`.
           5. Reject Upstream Kernel Suffix (WILD)
           * Requirement: PROHIBITED to use `-OP-WILD` or `OP-WILD` anywhere.
           * Adherence: 
@@ -127,6 +129,7 @@ jobs:
           3. Audit ReSukiSU Integrity: Ensure the "Add ReSukiSU" steps in `action.yml` have not been deleted, and the project description in `README.md` has not been overwritten by upstream.
           4. Audit Telegram Links: Verify that the Telegram links in `README.md` still point to `https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`.
           5. Audit USB DWC3: Verify that the "Add USB DWC3 & OTG Support" step in `action.yml` still exists.
+          6. Audit AnyKernel3 Manifests: Verify that `manifests/**/*.xml` files do not point to the upstream WildKernels AnyKernel3 repo.
 
           ## ⚠️ Abort Condition (IMPORTANT)
           If you detect that upstream has not fully completed their modification (e.g., missing files, broken logic), actively ABANDON this sync. Do not create a PR, or close it, and leave a comment explaining what was incomplete.
