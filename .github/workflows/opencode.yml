@@ -221,64 +221,38 @@ jobs:
             echo "No toolchain changes."
           fi
 
-  set-matrix:
-    name: Generate Test Matrix
+  trigger-test-build:
+    name: Trigger Test Build
     needs: [auto-mirror]
     if: github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'opencode/')
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    permissions:
+      actions: write
+      contents: read
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v6
-      - name: Generate build matrix
-        id: set-matrix
+      - name: Trigger build-kernel-release.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 -c '
-          import os, json
-          configs = []
-          for root, _, files in os.walk("configs"):
-              for file in files:
-                  if file.endswith(".json"):
-                      with open(os.path.join(root, file), "r") as f:
-                          try: configs.append(json.load(f))
-                          except: pass
-          wrapped = {"include": configs}
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"matrix={json.dumps(wrapped)}\n")
-          '
-
-  test-build:
-    name: Build (${{ matrix.model }})
-    needs: [set-matrix]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.set-matrix.outputs.matrix) }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install Minimal Dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            git curl ca-certificates build-essential clang lld flex bison \
-            libelf-dev libssl-dev libncurses-dev zlib1g-dev liblz4-tool \
-            libxml2-utils rsync unzip dwarves file python3 bc dos2unix kmod libdw-dev elfutils pigz jq
-
-      - name: Test Build Kernel
-        uses: ./.github/actions/build-kernel
-        with:
-          op_config_json: ${{ toJSON(matrix) }}
-          ksu_type: "ReSukiSU"
-          ksu_branch_or_hash: "main"
-          susfs_commit_hash_or_branch: "gki-${{ matrix.android_version }}-${{ matrix.kernel_version }}"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+          echo "Triggering build-kernel-release.yml on PR branch: $PR_BRANCH"
+          gh workflow run build-kernel-release.yml --repo ${{ github.repository }} --ref "$PR_BRANCH" -f make_release=false
+          
+          echo "Waiting 15 seconds for workflow to appear in API..."
+          sleep 15
+          RUN_ID=$(gh run list --workflow=build-kernel-release.yml --limit 1 --json databaseId -q '.[0].databaseId' --repo ${{ github.repository }})
+          
+          if [ -n "$RUN_ID" ]; then
+            echo "Watching build run ID: $RUN_ID"
+            gh run watch $RUN_ID --repo ${{ github.repository }} --exit-status
+          else
+            echo "Failed to get build run ID, failing job..."
+            exit 1
+          fi
 
   report-test-result:
     name: Report and Auto-Fix
-    needs: [test-build]
+    needs: [trigger-test-build]
     if: always() && github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'opencode/')
     runs-on: ubuntu-latest
     permissions:
@@ -295,7 +269,7 @@ jobs:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_TEST_CHAT_ID || secrets.TG_CHAT_ID }}
         run: |
-          STATUS="${{ needs.test-build.result }}"
+          STATUS="${{ needs.trigger-test-build.result }}"
           EMOJI="✅"
           if [ "$STATUS" != "success" ]; then EMOJI="❌"; fi
           
@@ -320,9 +294,9 @@ jobs:
 
       # 按照要求：暂时注释掉自动修复步骤，等待手动命令触发
       # - name: Run opencode to fix build
-      #   if: needs.test-build.result != 'success'
+      #   if: needs.trigger-test-build.result != 'success'
       #   ...
 
       - name: Fail the workflow
-        if: needs.test-build.result != 'success'
+        if: needs.trigger-test-build.result != 'success'
         run: exit 1
