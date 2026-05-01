@@ -263,24 +263,34 @@ jobs:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_TEST_CHAT_ID || secrets.TG_CHAT_ID }}
         run: |
-          STATUS="${{ needs.test-build.result }}"; EMOJI="✅"; [ "$STATUS" != "success" ] && EMOJI="❌"
-          MSG="${EMOJI} <b>Opencode PR Test Build Finished</b>\n━━━━━━━━━━━━━━━━━━\n<b>Result:</b> <code>${STATUS}</code>\n<b>PR:</b> #${{ github.event.pull_request.number }}\n━━━━━━━━━━━━━━━━━━"
-          PAYLOAD=$(jq -n --arg chat_id "$TG_CHAT_ID" --arg text "$MSG" '{chat_id: $chat_id, parse_mode: "HTML", text: $text}')
-          curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD"
-      - name: Run opencode to fix build
-        if: needs.test-build.result != 'success'
-        uses: anomalyco/opencode/github@latest
-        env:
-          XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          model: xiaomi-token-plan-cn/mimo-v2-pro
-          prompt: "The matrix test build failed. Please check logs and fix. ALWAYS push a commit (use --allow-empty if needed) to re-trigger."
-      - name: Force Rerun
-        if: always() && needs.test-build.result != 'success'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh run rerun ${{ github.run_id }} --failed || true
+          STATUS="${{ needs.test-build.result }}"
+          EMOJI="✅"
+          if [ "$STATUS" != "success" ]; then EMOJI="❌"; fi
+          
+          # 构建多行消息 (使用 $'\n' 确保换行)
+          MSG_TEXT="${EMOJI} <b>Opencode PR Test Build Finished</b>"$'\n'
+          MSG_TEXT+="━━━━━━━━━━━━━━━━━━"$'\n'
+          MSG_TEXT+="<b>Result:</b> <code>${STATUS}</code>"$'\n'
+          MSG_TEXT+="<b>PR:</b> <a href=\"${{ github.event.pull_request.html_url }}\">#${{ github.event.pull_request.number }}</a>"$'\n'
+          
+          if [ "$STATUS" != "success" ]; then
+            MSG_TEXT+="━━━━━━━━━━━━━━━━━━"$'\n'
+            MSG_TEXT+="👉 <i>The build failed. To ask the agent to fix it, comment:</i>"$'\n'
+            MSG_TEXT+="<code>/opencode fix the build errors</code>"
+          fi
+          
+          PAYLOAD=$(jq -n --arg chat_id "$TG_CHAT_ID" --arg text "$MSG_TEXT" \
+            '{chat_id: $chat_id, parse_mode: "HTML", disable_web_page_preview: true, text: $text}')
+          
+          curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" > /dev/null
+
+      # 按照要求：暂时注释掉自动修复步骤，等待手动命令触发
+      # - name: Run opencode to fix build
+      #   if: needs.test-build.result != 'success'
+      #   ...
+
       - name: Fail the workflow
         if: needs.test-build.result != 'success'
         run: exit 1
