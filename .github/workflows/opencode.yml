@@ -238,6 +238,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Prepare TG Message
+        id: prep-msg
+        if: always()
+        shell: bash
+        run: |
+          TEST_BUILD_RESULT="${{ needs.test-build.result }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_NUM="${{ github.event.pull_request.number }}"
+          
+          EMOJI="✅"
+          if [ "$TEST_BUILD_RESULT" != "success" ]; then EMOJI="❌"; fi
+          
+          {
+            echo "msg<<EOF"
+            echo "${EMOJI} <b>Opencode PR Test Build Finished</b>"
+            echo "━━━━━━━━━━━━━━━━━━"
+            echo "<b>Result:</b> <code>${TEST_BUILD_RESULT}</code>"
+            echo "<b>PR:</b> <a href=\"${PR_URL}\">#${PR_NUM}</a>"
+            echo "━━━━━━━━━━━━━━━━━━"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Send TG Progress
         if: always()
         continue-on-error: true
@@ -250,18 +272,7 @@ jobs:
             exit 0
           fi
           
-          TEST_BUILD_RESULT="${{ needs.test-build.result }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          PR_NUM="${{ github.event.pull_request.number }}"
-          
-          EMOJI="✅"
-          if [ "$TEST_BUILD_RESULT" != "success" ]; then EMOJI="❌"; fi
-          
-          MSG_TEXT="${EMOJI} <b>Opencode PR Test Build Finished</b>"$'\n'
-          MSG_TEXT+="━━━━━━━━━━━━━━━━━━"$'\n'
-          MSG_TEXT+="<b>Result:</b> <code>${TEST_BUILD_RESULT}</code>"$'\n'
-          MSG_TEXT+="<b>PR:</b> <a href=\"${PR_URL}\">#${PR_NUM}</a>"$'\n'
-          MSG_TEXT+="━━━━━━━━━━━━━━━━━━"
+          MSG_TEXT="${{ steps.prep-msg.outputs.msg }}"
           
           # Split TG_CHAT_ID by comma or space
           IFS=' ,' read -r -a CHAT_IDS <<< "$TG_CHAT_ID"
