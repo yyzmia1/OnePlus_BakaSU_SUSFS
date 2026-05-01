@@ -310,7 +310,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
-          prompt: "The matrix test build failed for one or more devices. Please check the GitHub Actions logs for the failed 'test-build' jobs to identify the compilation errors. Fix the code to resolve these compilation errors and push the updates to the PR branch. NOTE: If you use GH_TOKEN (fallback) to push, it might not re-trigger the build. If that happens, please warn the user to manually re-run.\n\nIF YOU ENCOUNTER A TOOLCHAIN CACHE ERROR (e.g., '[FATAL ERROR] Toolchain AnyKernel3... NOT FOUND in GitHub Release cache!'):\nThis means a newly added toolchain hasn't been mirrored to GitHub releases yet. You MUST manually trigger the mirror workflow for your PR branch using the following command in your terminal:\n`gh workflow run mirror-toolchains.yml --ref <your-pr-branch-name>`\nWait a minute for it to complete, and then trigger a new test build by pushing an empty commit."
+          prompt: "The matrix test build failed for one or more devices. Please check the GitHub Actions logs for the failed 'test-build' jobs to identify the compilation errors. Fix the code to resolve these compilation errors and push the updates to the PR branch. \n\nIMPORTANT RE-TRIGGER RULE: Even if you find no bugs to fix or your investigation results in no code changes, YOU MUST push a commit to the PR branch to re-trigger the verification. Use `git commit --allow-empty -m 'chore: trigger re-verification'` if necessary. Verification MUST run again.\n\nIF YOU ENCOUNTER A TOOLCHAIN CACHE ERROR (e.g., '[FATAL ERROR] Toolchain AnyKernel3... NOT FOUND in GitHub Release cache!'):\nThis means a newly added toolchain hasn't been mirrored to GitHub releases yet. You MUST manually trigger the mirror workflow for your PR branch using the following command in your terminal:\n`gh workflow run mirror-toolchains.yml --ref <your-pr-branch-name>`\nWait a minute for it to complete, and then trigger a new test build by pushing an empty commit."
+
+      - name: Force Rerun on Sync (Fallback)
+        # 即使 Agent 忘了推空提交，我们也在这里手动尝试重新触发失败的任务（需要 GH_TOKEN 权限）
+        if: always() && needs.test-build.result != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 尝试通过 CLI 重新运行失败的任务，作为最后的保险
+          gh run rerun ${{ github.run_id }} --failed || echo "Rerun skipped or failed"
 
       - name: Fail the workflow
         if: needs.test-build.result != 'success'
