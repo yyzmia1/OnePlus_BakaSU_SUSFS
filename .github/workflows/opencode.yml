@@ -13,7 +13,7 @@ on:
     types: [created]
   pull_request_review_comment:
     types: [created]
-  pull_request: # 恢复为 pull_request，因为 Action 不支持 pull_request_target
+  pull_request: 
     types: [opened, synchronize]
 
 jobs:
@@ -39,7 +39,6 @@ jobs:
           echo "Local commit: $LOCAL_COMMIT"
           echo "Upstream commit: $UPSTREAM_COMMIT"
           
-          # Check if upstream is ahead
           if ! git merge-base --is-ancestor $UPSTREAM_COMMIT $LOCAL_COMMIT; then
             echo "Upstream has new commits."
             echo "has_updates=true" >> "$GITHUB_OUTPUT"
@@ -51,7 +50,6 @@ jobs:
   opencode:
     name: Run Opencode Agent
     needs: [check-upstream]
-    # 如果是定时触发，只有在检查到有更新时才运行；手动触发或评论触发则直接运行
     if: |
       always() && 
       (
@@ -71,35 +69,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          # Disable persisting credentials to prevent conflicts with GITHUB_TOKEN environment variable
           persist-credentials: false
-          # Fetch full history for proper merge
           fetch-depth: 0
 
-      - name: Verify Permissions & Sanitize Codebase
-        shell: bash
-        run: |
-          echo "::group::Permission Check"
-          if git push origin HEAD:perm-check-temporary --dry-run 2>/dev/null; then
-            echo "✅ GITHUB_TOKEN has write permissions."
-          else
-            echo "::error::GITHUB_TOKEN is READ-ONLY! Please go to 'Settings -> Actions -> General -> Workflow permissions' and select 'Read and write permissions'."
-          fi
-          echo "::endgroup::"
-
-          echo "::group::Auto-Enforce Rules (Sanitization)"
-          # Fix AnyKernel3 URLs in XML manifests
-          echo "Syncing AnyKernel3 URLs in manifests..."
-          find manifests -name "*.xml" -exec sed -i 's|github.com/WildKernels/AnyKernel3|github.com/huangdihd/AnyKernel3|g' {} +
-          find manifests -name "*.xml" -exec sed -i 's|fetch="https://github.com/WildKernels" name="wild"|fetch="https://github.com/huangdihd" name="wild"|g' {} +
-          
-          # Fix uname in JSON configs
-          echo "Syncing uname in configs..."
-          find configs -name "*.json" -exec sed -i 's/"uname": "OP-WILD"/"uname": "OP-RESUKISU"/g' {} +
-          
-          echo "Codebase sanitized successfully."
-          echo "::endgroup::"
-
+      # 第一步：自动合并
       - name: Pre-merge Upstream
         if: github.event_name == 'schedule' || ( github.event_name == 'workflow_dispatch' && ( github.event.inputs.prompt == '' || github.event.inputs.prompt == null ) )
         shell: bash
@@ -108,12 +81,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add upstream https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.git
-          
-          echo "Fetching upstream..."
           git -c http.extraHeader="" fetch --no-tags upstream main
-          
-          echo "Attempting automatic merge..."
-          # Try to merge. If it fails due to conflicts, we don't exit 1, let the agent handle it.
           if git merge upstream/main --no-edit; then
             echo "✅ Automatic merge successful."
           else
@@ -121,98 +89,78 @@ jobs:
           fi
           echo "::endgroup::"
 
+      # 第二步：自动清洗 (必须在 merge 之后，防止被 merge 覆盖)
+      - name: Sanitize Codebase
+        shell: bash
+        run: |
+          echo "::group::Auto-Enforce Rules (Sanitization)"
+          echo "Syncing AnyKernel3 URLs in manifests..."
+          find manifests -name "*.xml" -exec sed -i 's|github.com/WildKernels/AnyKernel3|github.com/huangdihd/AnyKernel3|g' {} +
+          find manifests -name "*.xml" -exec sed -i 's|fetch="https://github.com/WildKernels" name="wild"|fetch="https://github.com/huangdihd" name="wild"|g' {} +
+          
+          echo "Syncing uname in configs..."
+          find configs -name "*.json" -exec sed -i 's/"uname": "OP-WILD"/"uname": "OP-RESUKISU"/g' {} +
+          
+          # 顺便检查 action.yml
+          sed -i 's|https://github.com/WildKernels/AnyKernel3|https://github.com/huangdihd/AnyKernel3|g' .github/actions/build-kernel/action.yml
+          
+          echo "Codebase sanitized successfully."
+          echo "::endgroup::"
+
       - name: Prepare Prompt
         id: prep
         run: |
-          # 1. Define Common Blocks
           cat << 'EOF' > guidelines.txt
           STRICT WORKFLOW RULE (CRITICAL): 
           - You must remain on the CURRENT branch. Do not switch to or create any other branches.
           - STRICT SECURITY RULE: Under NO circumstances are you allowed to modify the 'main' branch or any other existing permanent branches directly. 
           - Do not attempt to manually create Pull Requests or push code using external command-line tools.
-          - WHY: The system manages a specialized temporary branch and the necessary authentication. Deviating from the current branch or attempting to modify protected branches will cause the automation to fail.
           - YOUR TASK: Simply perform the requested modifications on the CURRENT temporary branch. Stay exactly where you are.
 
-          # Project Maintenance & Safety Guidelines (OnePlus_KernelSU_SUSFS)
-          You must strictly adhere to the following guidelines for ALL code modifications.
-
+          # Project Maintenance & Safety Guidelines
           ## 🚫 Strictly Forbidden
-          1. Reject Normalize Scheme: PROHIBITED to introduce any code containing the keyword `normalized` in `.github/workflows/build-kernel-release.yml`.
-          2. Reject KernelSU-Next (KSUN) and WildKSU: PROHIBITED to add `KSUN` or `WildKSU` to the `ksu_type` options in `.github/actions/action.yml`.
-          3. Preserve Telegram Links: PROHIBITED to replace original links (`t.me/huangdihd`, `t.me/huangdihd_wildkernel`) in `README.md`.
-          4. Preserve AnyKernel3 Repo: AnyKernel3 URLs in `action.yml` and `manifests/**/*.xml` MUST point to `https://github.com/huangdihd/AnyKernel3`.
-          5. Reject WILD Suffix: `"uname"` in configs MUST be `"OP-RESUKISU"`. Fallback LOCALVERSION must not be `-OP-WILD`.
-          6. Preserve USB DWC3 & OTG Support: PROHIBITED to remove or disable this step in `action.yml`.
+          1. Reject Normalize Scheme: NO `normalized` keyword in `.github/workflows/build-kernel-release.yml`.
+          2. Reject KSUN/WildKSU: NO `KSUN` or `WildKSU` in `.github/actions/action.yml`.
+          3. Preserve Telegram Links: Keep `t.me/huangdihd` and `t.me/huangdihd_wildkernel`.
+          4. Preserve AnyKernel3 Repo: MUST point to `https://github.com/huangdihd/AnyKernel3`.
+          5. Reject WILD Suffix: `"uname"` MUST be `"OP-RESUKISU"`. NO `-OP-WILD`.
+          6. Preserve USB DWC3 & OTG Support: DO NOT remove this step in `action.yml`.
           7. Preserve Correct ReSukiSU Repository: MUST use `https://github.com/ReSukiSU/ReSukiSU`.
-
-          ## 🛠️ Audit Checklist
-          Before finishing, you MUST verify:
-          1. No "KSUN" or "WildKSU" in build scripts.
-          2. No "normalized" in release workflows.
-          3. ReSukiSU steps are intact.
-          4. Telegram links and AnyKernel3 URLs are correct.
-          5. "Add USB DWC3 & OTG Support" step exists in action.yml.
           EOF
 
-          # 2. Logic based on Trigger
           if [[ "${{ github.event_name }}" == "schedule" || ( "${{ github.event_name }}" == "workflow_dispatch" && ( "${{ github.event.inputs.prompt }}" == "" || "${{ github.event.inputs.prompt }}" == "null" ) ) ]]; then
-            # UPSTREAM SYNC LOGIC
             {
-              echo "A 'git merge upstream/main' has already been attempted on the current branch."
-              echo "Automatic scripts have also run to fix AnyKernel3 URLs in manifests and 'uname' fields in configs."
+              echo "A 'git merge upstream/main' has already been attempted. Automatic scripts have also fixed AnyKernel3 URLs and 'uname' fields."
               echo "Your primary task is to:"
-              echo "1. Check the current git status. If there are UNRESOLVED CONFLICTS, you MUST resolve them manually."
-              echo "2. Audit the entire codebase against our mandatory safety guidelines to ensure the scripts didn't miss anything."
-              echo "3. Ensure all forbidden elements (KSUN, Normalize, etc.) are REMOVED or REVERTED if the merge brought them in."
+              echo "1. Resolve any UNRESOLVED CONFLICTS."
+              echo "2. Final audit against guidelines."
               echo ""
               cat guidelines.txt
-              echo ""
-              echo "## ⚠️ Abort Condition"
-              echo "If upstream modifications are incomplete or broken, actively ABANDON this sync and leave a comment."
             } > final_prompt.txt
           elif [[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]]; then
-            # INTERACTIVE COMMENT LOGIC
-            {
-              echo "You are responding to a user request in a Pull Request comment."
-              echo "Carefully implement the requested changes, but YOU MUST strictly follow the project safety guidelines below:"
-              echo ""
-              cat guidelines.txt
-            } > final_prompt.txt
+            { echo "Interactive mode: Respond to user request while following guidelines:"; echo ""; cat guidelines.txt; } > final_prompt.txt
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.prompt }}" != "" ]]; then
-            # CUSTOM DISPATCH LOGIC
-            {
-              echo "${{ github.event.inputs.prompt }}"
-              echo ""
-              echo "---"
-              echo "IMPORTANT: While performing the task above, you MUST adhere to the project safety guidelines:"
-              echo ""
-              cat guidelines.txt
-            } > final_prompt.txt
+            { echo "${{ github.event.inputs.prompt }}"; echo ""; echo "---"; cat guidelines.txt; } > final_prompt.txt
           else
             echo "" > final_prompt.txt
           fi
 
-          # 3. Output the result
-          {
-            echo 'prompt<<EOF'
-            cat final_prompt.txt
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
+          { echo 'prompt<<EOF'; cat final_prompt.txt; echo 'EOF'; } >> "$GITHUB_OUTPUT"
 
+      # 第三步：调用 Agent
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
-          # Using GITHUB_TOKEN to ensure permission assertion passes.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: ${{ steps.prep.outputs.prompt }}
 
+  # 第四步：判断并重新镜像工具链
   auto-mirror:
     name: Auto-Mirror Toolchains
     needs: [opencode]
-    # 如果是同步上游且成功完成，检查是否有工具链定义更新
     if: always() && needs.opencode.result == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
@@ -223,61 +171,39 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
-      - name: Check for Toolchain Changes
-        id: check
-        run: |
-          # 检查 manifests 或 configs 是否有变动
-          if git diff --name-only HEAD~1 HEAD | grep -E 'manifests/|configs/'; then
-            echo "Changes detected in toolchain definitions."
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No toolchain changes detected."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Trigger Mirror Workflow
-        if: steps.check.outputs.changed == 'true'
+      - name: Check for Changes & Trigger
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Triggering mirror-toolchains.yml..."
-          gh workflow run mirror-toolchains.yml --ref ${{ github.ref_name }}
-
+          if git diff --name-only HEAD~1 HEAD | grep -E 'manifests/|configs/'; then
+            echo "Triggering mirror-toolchains.yml..."
+            gh workflow run mirror-toolchains.yml --ref ${{ github.ref_name }}
+          else
+            echo "No toolchain changes."
+          fi
 
   set-matrix:
     name: Generate Test Matrix
-    if: github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'opencode/')
+    needs: [auto-mirror]
+    if: always() && github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'opencode/')
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
-
       - name: Generate build matrix
         id: set-matrix
-        shell: bash
         run: |
           echo "[" > matrix.json
-          mapfile -t all_json_files < <(find configs/ -name "*.json" -print0 | xargs -0 -n1)
-          for i in "${!all_json_files[@]}"; do
-            file="${all_json_files[$i]}"
-            if [ -f "$file" ]; then
-              jq -r '.' "$file" >> matrix.json
-              if [ $((i+1)) -lt ${#all_json_files[@]} ]; then
-                echo "," >> matrix.json
-              fi
-            fi
-          done
+          find configs/ -name "*.json" | while read file; do jq -r '.' "$file" >> matrix.json; echo "," >> matrix.json; done
+          sed -i '$ s/,$//' matrix.json
           echo "]" >> matrix.json
-          
-          filtered=$(jq -c '.' matrix.json)
-          wrapped=$(jq -n --argjson items "$filtered" '{ include: $items }')
+          wrapped=$(jq -n --argjson items "$(jq -c '.' matrix.json)" '{ include: $items }')
           echo "matrix=$(jq -c . <<< "$wrapped")" >> "$GITHUB_OUTPUT"
 
   test-build:
-    name: Build (${{ matrix.model }}, ${{ matrix.os_version }}, ${{ matrix.kernel_version }})
+    name: Build (${{ matrix.model }})
     needs: [set-matrix]
     runs-on: ubuntu-latest
     strategy:
@@ -286,34 +212,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
-      - name: Install Minimal Dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            git curl ca-certificates build-essential clang lld flex bison \
-            libelf-dev libssl-dev libncurses-dev zlib1g-dev liblz4-tool \
-            libxml2-utils rsync rsync unzip dwarves file python3 bc dos2unix kmod libdw-dev elfutils pigz jq
-
-      - name: Prepare op_config_json
-        id: prepare_config
-        shell: bash
-        run: |
-          echo "config_json=$(jq -nc --argjson m '${{ toJSON(matrix) }}' '$m')" >> "$GITHUB_OUTPUT"
-
       - name: Test Build Kernel
-        id: build
         uses: ./.github/actions/build-kernel
         with:
-          op_config_json: ${{ steps.prepare_config.outputs.config_json }}
+          op_config_json: ${{ toJSON(matrix) }}
           ksu_type: "ReSukiSU"
           ksu_branch_or_hash: "main"
-          # Mock SUSFS branch/hash based on android version since it's just a test
           susfs_commit_hash_or_branch: "gki-${{ matrix.android_version }}-${{ matrix.kernel_version }}"
-          optimize_level: "O2"
-          build_timestamp: ""
-          clean: true
-          debug: false
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   report-test-result:
@@ -330,53 +235,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
-      - name: Prepare TG Message
-        id: prep-msg
-        if: always()
-        shell: bash
-        run: |
-          TEST_BUILD_RESULT="${{ needs.test-build.result }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          PR_NUM="${{ github.event.pull_request.number }}"
-          
-          EMOJI="✅"
-          if [ "$TEST_BUILD_RESULT" != "success" ]; then EMOJI="❌"; fi
-          
-          {
-            echo "msg<<EOF"
-            echo "${EMOJI} <b>Opencode PR Test Build Finished</b>"
-            echo "━━━━━━━━━━━━━━━━━━"
-            echo "<b>Result:</b> <code>${TEST_BUILD_RESULT}</code>"
-            echo "<b>PR:</b> <a href=\"${PR_URL}\">#${PR_NUM}</a>"
-            echo "━━━━━━━━━━━━━━━━━━"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Send TG Progress
-        if: always()
-        continue-on-error: true
+      - name: Prepare & Send TG Message
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-          # Use dedicated TG_TEST_CHAT_ID for test builds, fallback to general TG_CHAT_ID
           TG_CHAT_ID: ${{ secrets.TG_TEST_CHAT_ID || secrets.TG_CHAT_ID }}
         run: |
-          if [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_CHAT_ID" ]; then
-            echo "Telegram secrets not configured!"
-            exit 0
-          fi
-          
-          MSG_TEXT="${{ steps.prep-msg.outputs.msg }}"
-          IFS=' ,' read -r -a CHAT_IDS <<< "$TG_CHAT_ID"
-          
-          for ID in "${CHAT_IDS[@]}"; do
-            if [ -z "$ID" ]; then continue; fi
-            PAYLOAD=$(jq -n --arg chat_id "$ID" --arg text "$MSG_TEXT" \
-              '{chat_id: $chat_id, parse_mode: "HTML", disable_web_page_preview: true, text: $text}')
-            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
-              -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null
-          done
-
+          STATUS="${{ needs.test-build.result }}"; EMOJI="✅"; [ "$STATUS" != "success" ] && EMOJI="❌"
+          MSG="${EMOJI} <b>Opencode PR Test Build Finished</b>\n━━━━━━━━━━━━━━━━━━\n<b>Result:</b> <code>${STATUS}</code>\n<b>PR:</b> #${{ github.event.pull_request.number }}\n━━━━━━━━━━━━━━━━━━"
+          PAYLOAD=$(jq -n --arg chat_id "$TG_CHAT_ID" --arg text "$MSG" '{chat_id: $chat_id, parse_mode: "HTML", text: $text}')
+          curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD"
       - name: Run opencode to fix build
         if: needs.test-build.result != 'success'
         uses: anomalyco/opencode/github@latest
@@ -385,15 +252,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
-          prompt: "The matrix test build failed for one or more devices. Please check the GitHub Actions logs for the failed 'test-build' jobs to identify the compilation errors. Fix the code to resolve these compilation errors and push the updates to the PR branch. \n\nIMPORTANT RE-TRIGGER RULE: Even if you find no bugs to fix or your investigation results in no code changes, YOU MUST push a commit to the PR branch to re-trigger the verification. Use `git commit --allow-empty -m 'chore: trigger re-verification'` if necessary. Verification MUST run again.\n\nIF YOU ENCOUNTER A TOOLCHAIN CACHE ERROR (e.g., '[FATAL ERROR] Toolchain AnyKernel3... NOT FOUND in GitHub Release cache!'):\nThis means a newly added toolchain hasn't been mirrored to GitHub releases yet. You MUST manually trigger the mirror workflow for your PR branch using the following command in your terminal:\n`gh workflow run mirror-toolchains.yml --ref <your-pr-branch-name>`\nWait a minute for it to complete, and then trigger a new test build by pushing an empty commit."
-
-      - name: Force Rerun on Sync (Fallback)
+          prompt: "The matrix test build failed. Please check logs and fix. ALWAYS push a commit (use --allow-empty if needed) to re-trigger."
+      - name: Force Rerun
         if: always() && needs.test-build.result != 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh run rerun ${{ github.run_id }} --failed || echo "Rerun skipped or failed"
-
+        run: gh run rerun ${{ github.run_id }} --failed || true
       - name: Fail the workflow
         if: needs.test-build.result != 'success'
         run: exit 1
