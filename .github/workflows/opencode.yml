@@ -145,8 +145,8 @@ jobs:
         uses: anomalyco/opencode/github@latest
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
-          # Removed GH_TOKEN to ensure opencode-agent identity and prevent manual CLI actions.
-          # The system will automatically handle the push and Pull Request creation.
+          # Provided for API access, but restricted via prompt from manual PR/branching.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: ${{ steps.prep.outputs.prompt }}
@@ -250,16 +250,16 @@ jobs:
             exit 0
           fi
           
-          STATUS="${{ needs.test-build.result }}"
+          TEST_BUILD_RESULT="${{ needs.test-build.result }}"
           PR_URL="${{ github.event.pull_request.html_url }}"
           PR_NUM="${{ github.event.pull_request.number }}"
           
           EMOJI="✅"
-          if [ "$STATUS" != "success" ]; then EMOJI="❌"; fi
+          if [ "$TEST_BUILD_RESULT" != "success" ]; then EMOJI="❌"; fi
           
           MSG_TEXT="${EMOJI} <b>Opencode PR Test Build Finished</b>"$'\n'
           MSG_TEXT+="━━━━━━━━━━━━━━━━━━"$'\n'
-          MSG_TEXT+="<b>Result:</b> <code>${STATUS}</code>"$'\n'
+          MSG_TEXT+="<b>Result:</b> <code>${TEST_BUILD_RESULT}</code>"$'\n'
           MSG_TEXT+="<b>PR:</b> <a href=\"${PR_URL}\">#${PR_NUM}</a>"$'\n'
           MSG_TEXT+="━━━━━━━━━━━━━━━━━━"
           
