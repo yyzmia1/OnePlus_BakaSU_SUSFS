@@ -94,15 +94,30 @@ jobs:
         shell: bash
         run: |
           echo "::group::Auto-Enforce Rules (Sanitization)"
+          # Fix AnyKernel3 URLs in XML manifests
           echo "Syncing AnyKernel3 URLs in manifests..."
           find manifests -name "*.xml" -exec sed -i 's|github.com/WildKernels/AnyKernel3|github.com/huangdihd/AnyKernel3|g' {} +
           find manifests -name "*.xml" -exec sed -i 's|fetch="https://github.com/WildKernels" name="wild"|fetch="https://github.com/huangdihd" name="wild"|g' {} +
           
+          # Fix uname in JSON configs
           echo "Syncing uname in configs..."
           find configs -name "*.json" -exec sed -i 's/"uname": "OP-WILD"/"uname": "OP-RESUKISU"/g' {} +
           
           # 顺便检查 action.yml
           sed -i 's|https://github.com/WildKernels/AnyKernel3|https://github.com/huangdihd/AnyKernel3|g' .github/actions/build-kernel/action.yml
+          
+          # 强制删除 KSUN 相关步骤 (Python 脚本处理 YAML 块)
+          python3 -c "
+          import sys
+          path = '.github/actions/build-kernel/action.yml'
+          with open(path, 'r') as f: lines = f.readlines()
+          new_lines, skip = [], False
+          for line in lines:
+              if '- name: Add KernelSU-Next' in line or '- name: Add KSUN' in line: skip = True
+              elif skip and line.startswith('    - name:'): skip = False
+              if not skip: new_lines.append(line)
+          with open(path, 'w') as f: f.writelines(new_lines)
+          "
           
           echo "Codebase sanitized successfully."
           echo "::endgroup::"
@@ -130,10 +145,15 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "schedule" || ( "${{ github.event_name }}" == "workflow_dispatch" && ( "${{ github.event.inputs.prompt }}" == "" || "${{ github.event.inputs.prompt }}" == "null" ) ) ]]; then
             {
-              echo "A 'git merge upstream/main' has already been attempted. Automatic scripts have also fixed AnyKernel3 URLs and 'uname' fields."
+              echo "A 'git merge upstream/main' has already been attempted."
+              echo "AUTOMATED ACTIONS TAKEN:"
+              echo "- Fixed AnyKernel3 URLs in XML manifests to point to huangdihd."
+              echo "- Forced 'uname': 'OP-RESUKISU' in all device configs."
+              echo "- Removed 'Add KernelSU-Next' or 'Add KSUN' steps from build action."
+              echo ""
               echo "Your primary task is to:"
               echo "1. Resolve any UNRESOLVED CONFLICTS."
-              echo "2. Final audit against guidelines."
+              echo "2. Final audit against guidelines to ensure no forbidden elements remains."
               echo ""
               cat guidelines.txt
             } > final_prompt.txt
@@ -175,7 +195,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if git diff --name-only HEAD~1 HEAD | grep -E 'manifests/|configs/'; then
+          # 强制拉取最新的 main 分支用于对比
+          git fetch origin main
+          # 对比当前 HEAD 和 origin/main 之间的差异，更准确捕捉工具链更新
+          if git diff --name-only origin/main HEAD | grep -E 'manifests/|configs/'; then
             echo "Triggering mirror-toolchains.yml..."
             gh workflow run mirror-toolchains.yml --ref ${{ github.ref_name }}
           else
