@@ -309,9 +309,7 @@ jobs:
         uses: anomalyco/opencode/github@latest
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
-          # Use GH_PAT if available (to trigger recursive builds), fallback to GITHUB_TOKEN
-          # Renamed to GITHUB_TOKEN to satisfy the action's internal permission assertion.
-          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: "The matrix test build failed for one or more devices. Please check the GitHub Actions logs for the failed 'test-build' jobs to identify the compilation errors. Fix the code to resolve these compilation errors and push the updates to the PR branch. \n\nIMPORTANT RE-TRIGGER RULE: Even if you find no bugs to fix or your investigation results in no code changes, YOU MUST push a commit to the PR branch to re-trigger the verification. Use `git commit --allow-empty -m 'chore: trigger re-verification'` if necessary. Verification MUST run again.\n\nIF YOU ENCOUNTER A TOOLCHAIN CACHE ERROR (e.g., '[FATAL ERROR] Toolchain AnyKernel3... NOT FOUND in GitHub Release cache!'):\nThis means a newly added toolchain hasn't been mirrored to GitHub releases yet. You MUST manually trigger the mirror workflow for your PR branch using the following command in your terminal:\n`gh workflow run mirror-toolchains.yml --ref <your-pr-branch-name>`\nWait a minute for it to complete, and then trigger a new test build by pushing an empty commit."
