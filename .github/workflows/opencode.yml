@@ -135,7 +135,9 @@ jobs:
         uses: anomalyco/opencode/github@latest
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
-          # Do NOT provide GITHUB_TOKEN here to keep opencode-agent identity
+          # Provide GH_TOKEN so 'gh pr create' works. 
+          # Using GH_TOKEN instead of GITHUB_TOKEN to minimize identity override risk.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: ${{ steps.prep.outputs.prompt }}
