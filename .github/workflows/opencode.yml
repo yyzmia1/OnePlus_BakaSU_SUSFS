@@ -188,7 +188,6 @@ jobs:
     name: Build (${{ matrix.model }}, ${{ matrix.os_version }}, ${{ matrix.kernel_version }})
     needs: [set-matrix]
     runs-on: ubuntu-latest
-    continue-on-error: true # Let all tests finish, report at the end
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.set-matrix.outputs.matrix) }}
