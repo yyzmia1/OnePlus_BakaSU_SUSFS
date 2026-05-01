@@ -94,11 +94,12 @@ jobs:
         shell: bash
         run: |
           echo "::group::Auto-Enforce Rules (Sanitization)"
-          # Fix AnyKernel3 URLs in XML manifests
-          echo "Syncing AnyKernel3 URLs in manifests..."
+          # Fix AnyKernel3 URLs and revisions in XML manifests
+          echo "Syncing AnyKernel3 URLs and revisions in manifests..."
           find manifests -name "*.xml" -exec sed -i 's|github.com/WildKernels/AnyKernel3|github.com/huangdihd/AnyKernel3|g' {} +
           find manifests -name "*.xml" -exec sed -i 's|fetch="https://github.com/WildKernels" name="wild"|fetch="https://github.com/huangdihd" name="wild"|g' {} +
-          
+          find manifests -name "*.xml" -exec sed -i -E 's/(name="AnyKernel3".*revision=")[^"]+(")/\1gki-2.0\2/g' {} +
+
           # Fix uname in JSON configs
           echo "Syncing uname in configs..."
           find configs -name "*.json" -exec sed -i 's/"uname": "OP-WILD"/"uname": "OP-RESUKISU"/g' {} +
