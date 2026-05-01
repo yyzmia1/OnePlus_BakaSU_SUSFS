@@ -177,11 +177,12 @@ jobs:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: ${{ steps.prep.outputs.prompt }}
 
-  # 第四步：判断并重新镜像工具链
+  # -------- PULL REQUEST WORKFLOW CHAIN --------
+
+  # 第一步：判断并重新镜像工具链 (仅在 PR 时运行，并且阻塞等待完成)
   auto-mirror:
     name: Auto-Mirror Toolchains
-    needs: [opencode]
-    if: always() && needs.opencode.result == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'opencode/')
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -196,14 +197,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git remote add upstream https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.git
-          git fetch upstream main
-          
-          # 对比当前 HEAD (main) 和 upstream/main 之间的差异
-          if git diff --name-only HEAD upstream/main | grep -E 'manifests/|configs/'; then
-            echo "Toolchain changes detected in upstream."
+          git fetch origin main
+          if git diff --name-only origin/main HEAD | grep -E 'manifests/|configs/'; then
+            echo "Toolchain changes detected."
+            PR_BRANCH="${{ github.event.pull_request.head.ref }}"
             echo "Triggering mirror-toolchains.yml on main..."
             gh workflow run mirror-toolchains.yml --repo ${{ github.repository }} --ref main
+            
+            echo "Waiting 15 seconds for workflow to appear in API..."
+            sleep 15
+            RUN_ID=$(gh run list --workflow=mirror-toolchains.yml --limit 1 --json databaseId -q '.[0].databaseId' --repo ${{ github.repository }})
+            
+            if [ -n "$RUN_ID" ]; then
+              echo "Watching mirror run ID: $RUN_ID"
+              gh run watch $RUN_ID --repo ${{ github.repository }} --exit-status || echo "Mirroring failed or timed out, proceeding anyway..."
+            else
+              echo "Failed to get mirror run ID, proceeding..."
+            fi
           else
             echo "No toolchain changes."
           fi
@@ -211,7 +221,7 @@ jobs:
   set-matrix:
     name: Generate Test Matrix
     needs: [auto-mirror]
-    if: always() && github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'opencode/')
+    if: github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'opencode/')
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
