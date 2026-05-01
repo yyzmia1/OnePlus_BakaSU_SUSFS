@@ -258,6 +258,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Install Minimal Dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git curl ca-certificates build-essential clang lld flex bison \
+            libelf-dev libssl-dev libncurses-dev zlib1g-dev liblz4-tool \
+            libxml2-utils rsync unzip dwarves file python3 bc dos2unix kmod libdw-dev elfutils pigz jq
+
       - name: Test Build Kernel
         uses: ./.github/actions/build-kernel
         with:
