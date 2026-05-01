@@ -209,6 +209,42 @@ jobs:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: ${{ steps.prep.outputs.prompt }}
 
+  auto-mirror:
+    name: Auto-Mirror Toolchains
+    needs: [opencode]
+    # 如果是同步上游且成功完成，检查是否有工具链定义更新
+    if: always() && needs.opencode.result == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for Toolchain Changes
+        id: check
+        run: |
+          # 检查 manifests 或 configs 是否有变动
+          if git diff --name-only HEAD~1 HEAD | grep -E 'manifests/|configs/'; then
+            echo "Changes detected in toolchain definitions."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No toolchain changes detected."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger Mirror Workflow
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering mirror-toolchains.yml..."
+          gh workflow run mirror-toolchains.yml --ref ${{ github.ref_name }}
+
+
   set-matrix:
     name: Generate Test Matrix
     if: github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'opencode/')
