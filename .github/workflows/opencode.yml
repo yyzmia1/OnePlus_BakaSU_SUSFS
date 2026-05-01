@@ -186,6 +186,7 @@ jobs:
     permissions:
       actions: write
       contents: read
+      pull-requests: read
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
@@ -195,12 +196,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 强制拉取最新的 main 分支用于对比
-          git fetch origin main
-          # 对比当前 HEAD 和 origin/main 之间的差异，更准确捕捉工具链更新
-          if git diff --name-only origin/main HEAD | grep -E 'manifests/|configs/'; then
-            echo "Triggering mirror-toolchains.yml..."
-            gh workflow run mirror-toolchains.yml --ref ${{ github.ref_name }}
+          git remote add upstream https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.git
+          git fetch upstream main
+          
+          # 对比当前 HEAD (main) 和 upstream/main 之间的差异
+          if git diff --name-only HEAD upstream/main | grep -E 'manifests/|configs/'; then
+            echo "Toolchain changes detected in upstream."
+            
+            # 找到刚刚 opencode 提的 PR 分支
+            PR_BRANCH=$(gh pr list --limit 1 --json headRefName -q '.[0].headRefName')
+            
+            if [[ -n "$PR_BRANCH" && "$PR_BRANCH" == opencode/* ]]; then
+              echo "Triggering mirror-toolchains.yml on PR branch: $PR_BRANCH"
+              gh workflow run mirror-toolchains.yml --ref "$PR_BRANCH"
+            else
+              echo "Fallback: Triggering mirror-toolchains.yml on main..."
+              gh workflow run mirror-toolchains.yml --ref ${{ github.ref_name }}
+            fi
           else
             echo "No toolchain changes."
           fi
