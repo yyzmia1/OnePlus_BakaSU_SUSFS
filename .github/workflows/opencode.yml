@@ -198,12 +198,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git fetch origin main
-          if git diff --name-only origin/main HEAD | grep -E 'manifests/|configs/'; then
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          
+          # Compare the PR head against the PR base
+          if git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD | grep -E 'manifests/|configs/'; then
             echo "Toolchain changes detected."
             PR_BRANCH="${{ github.event.pull_request.head.ref }}"
-            echo "Triggering mirror-toolchains.yml on main..."
-            gh workflow run mirror-toolchains.yml --repo ${{ github.repository }} --ref main
+            echo "Triggering mirror-toolchains.yml on PR branch: $PR_BRANCH"
+            gh workflow run mirror-toolchains.yml --repo ${{ github.repository }} --ref "$PR_BRANCH"
             
             echo "Waiting 15 seconds for workflow to appear in API..."
             sleep 15
