@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 0 * * *' # 每天北京时间上午8点 (UTC 0:00) 触发
   workflow_dispatch: # 添加手动触发
+    inputs:
+      prompt:
+        description: 'Custom prompt for the agent (leave empty for daily sync)'
+        required: false
+        type: string
   issue_comment:
     types: [created]
   pull_request_review_comment:
@@ -71,83 +76,78 @@ jobs:
       - name: Prepare Prompt
         id: prep
         run: |
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            cat << 'EOF' > prompt.txt
-          Check for upstream repository modifications from https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.
-          If there are new updates, YOU MUST integrate them. To avoid authentication issues, YOU MUST use the following specific command to fetch:
-          `git -c http.extraHeader="" fetch --no-tags https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.git main:upstream-main`
-          Then, use standard `git merge upstream-main` into the current branch.
-
+          # 1. Define Common Blocks
+          cat << 'EOF' > guidelines.txt
           STRICT WORKFLOW RULE (CRITICAL): 
           - You must remain on the CURRENT branch. Do not switch to or create any other branches.
           - STRICT SECURITY RULE: Under NO circumstances are you allowed to modify the 'main' branch or any other existing permanent branches directly. 
           - Do not attempt to manually create Pull Requests or push code using external command-line tools.
-          - WHY: The system manages a specialized temporary branch and the necessary authentication. Deviating from the current branch or attempting to modify protected branches will cause the automation to fail and is a violation of security protocols.
-          - YOUR TASK: Simply perform the 'git merge' and any required file modifications on the CURRENT temporary branch. Stay exactly where you are.
+          - WHY: The system manages a specialized temporary branch and the necessary authentication. Deviating from the current branch or attempting to modify protected branches will cause the automation to fail.
+          - YOUR TASK: Simply perform the requested modifications on the CURRENT temporary branch. Stay exactly where you are.
 
-          WARNING: Do NOT run `git merge --abort` and switch to manually checking out files (e.g. `git checkout upstream/main -- configs/`)! You MUST preserve the upstream Git history and commit signatures. DO NOT squash everything into a single manual commit!
-          After the merge is successfully committed to the current branch, simply finish your task. The system will automatically handle the push and Pull Request creation. YOU MUST STRICTLY FOLLOW THESE MERGE GUIDELINES:
-          
-          # Project Maintenance & Upstream Sync Guidelines (OnePlus_KernelSU_SUSFS)
-          This project is a fork of WildKernels, but maintains independence in core logic and Root solution selection. You must strictly adhere to the following guidelines.
+          # Project Maintenance & Safety Guidelines (OnePlus_KernelSU_SUSFS)
+          You must strictly adhere to the following guidelines for ALL code modifications.
 
-          ## 🚫 Strictly Forbidden (DO NOT BRING THESE IN)
-          1. Reject Normalize Scheme
-          * Background: Upstream introduced a matrix generation logic based on `ksu_options_normalized`.
-          * Requirement: PROHIBITED to introduce any code containing the keyword `normalized` in `.github/workflows/build-kernel-release.yml`.
-          * Adherence: Maintain the existing `set-matrix` logic, which manually selects the distribution mode via `inputs.ksu_type`.
-          2. Reject KernelSU-Next (KSUN) and WildKSU
-          * Background: We have shifted our core Root solution to ReSukiSU.
-          * Requirement: PROHIBITED to add `KSUN` or `WildKSU` to the `ksu_type` options in `.github/actions/action.yml` (or related build scripts).
-          * Adherence: The core Root solution must only retain `KSU` and `ReSukiSU`.
-          3. Preserve Original Telegram Channel Links
-          * Requirement: PROHIBITED to replace our Telegram links with the upstream's links.
-          * Adherence: You must ensure that our original Telegram links (`https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`) are kept intact in `README.md`.
-          4. Preserve AnyKernel3 Repository
-          * Requirement: PROHIBITED to change the AnyKernel3 clone URL or repository reference to upstream's.
-          * Adherence: 
-            - Ensure the AnyKernel3 URL in `.github/actions/build-kernel/action.yml` remains `https://github.com/huangdihd/AnyKernel3`.
-            - Ensure any AnyKernel3 or "wild" remote fetch URLs in ALL XML files under `manifests/` directory point to `https://github.com/huangdihd`.
-          5. Reject Upstream Kernel Suffix (WILD)
-          * Requirement: PROHIBITED to use `-OP-WILD` or `OP-WILD` anywhere.
-          * Adherence: 
-            - Ensure the fallback logic in `.github/actions/build-kernel/action.yml` does not use `-OP-WILD`.
-            - Ensure that the `"uname"` field in ANY JSON file inside the `configs/` directory is set to `"OP-RESUKISU"`. If upstream adds a new config with `"uname": "OP-WILD"`, you MUST change it to `"OP-RESUKISU"`.
-          6. Preserve USB DWC3 & OTG Support
-          * Requirement: PROHIBITED to remove the "Add USB DWC3 & OTG Support" step.
-          * Adherence: You must ensure that the step named "Add USB DWC3 & OTG Support" in `.github/actions/build-kernel/action.yml` is kept intact. Do not delete or disable it during merge.
-          7. Preserve Correct ReSukiSU Repository
-          * Background: The correct ReSukiSU repository is `https://github.com/ReSukiSU/ReSukiSU`.
-          * Requirement: PROHIBITED to change the ReSukiSU repository URL or references to any other fork (e.g., do NOT use `TheWildJames/ReSukiSU`).
-          * Adherence: Ensure all ReSukiSU download/setup scripts and repository owner/name variables in `.github/actions/build-kernel/action.yml`, `.github/workflows/build-kernel-release.yml`, and `README.md` point to the official `ReSukiSU/ReSukiSU`.
+          ## 🚫 Strictly Forbidden
+          1. Reject Normalize Scheme: PROHIBITED to introduce any code containing the keyword `normalized` in `.github/workflows/build-kernel-release.yml`.
+          2. Reject KernelSU-Next (KSUN) and WildKSU: PROHIBITED to add `KSUN` or `WildKSU` to the `ksu_type` options in `.github/actions/action.yml`.
+          3. Preserve Telegram Links: PROHIBITED to replace original links (`t.me/huangdihd`, `t.me/huangdihd_wildkernel`) in `README.md`.
+          4. Preserve AnyKernel3 Repo: AnyKernel3 URLs in `action.yml` and `manifests/**/*.xml` MUST point to `https://github.com/huangdihd/AnyKernel3`.
+          5. Reject WILD Suffix: `"uname"` in configs MUST be `"OP-RESUKISU"`. Fallback LOCALVERSION must not be `-OP-WILD`.
+          6. Preserve USB DWC3 & OTG Support: PROHIBITED to remove or disable this step in `action.yml`.
+          7. Preserve Correct ReSukiSU Repository: MUST use `https://github.com/ReSukiSU/ReSukiSU`.
 
-          ## ✅ Allowed to Sync (FOCUS ON THESE)
-          * Device Configurations: New device JSON files in the `configs/` directory (e.g., OP13, OP15, etc.).
-          * New Features: Functional patches like `lxc_ds` (Droidspaces/LXC support), `HMBIRD` optimizations, etc.
-          * Performance Optimizations: Logic introduced by upstream in the `set-op-model` task to parse hashes via GraphQL API.
-          * Compiler Updates: Path optimizations or version updates for Clang/Rust toolchains.
-
-          ## 🛠️ Post-Sync Checklist
-          Before submitting the PR, audit the repository:
-          1. Audit ksu_type: Ensure `grep "KSUN" .github/actions/action.yml` or `build-kernel-release.yml` returns no matches.
-          2. Audit Normalize logic: Ensure `grep "normalized" .github/workflows/build-kernel-release.yml` returns no matches.
-          3. Audit ReSukiSU Integrity: Ensure the "Add ReSukiSU" steps in `action.yml` have not been deleted, and the project description in `README.md` has not been overwritten by upstream.
-          4. Audit Telegram Links: Verify that the Telegram links in `README.md` still point to `https://t.me/huangdihd` and `https://t.me/huangdihd_wildkernel`.
-          5. Audit USB DWC3: Verify that the "Add USB DWC3 & OTG Support" step in `action.yml` still exists.
-          6. Audit AnyKernel3 Manifests: Verify that `manifests/**/*.xml` files do not point to the upstream WildKernels AnyKernel3 repo.
-
-          ## ⚠️ Abort Condition (IMPORTANT)
-          If you detect that upstream has not fully completed their modification (e.g., missing files, broken logic), actively ABANDON this sync. Do not create a PR, or close it, and leave a comment explaining what was incomplete.
+          ## 🛠️ Audit Checklist
+          Before finishing, you MUST verify:
+          1. No "KSUN" or "WildKSU" in build scripts.
+          2. No "normalized" in release workflows.
+          3. ReSukiSU steps are intact.
+          4. Telegram links and AnyKernel3 URLs are correct.
+          5. "Add USB DWC3 & OTG Support" step exists in action.yml.
           EOF
-            
+
+          # 2. Logic based on Trigger
+          if [[ "${{ github.event_name }}" == "schedule" || ( "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.prompt }}" == "" ) ]]; then
+            # UPSTREAM SYNC LOGIC
             {
-              echo 'prompt<<EOF'
-              cat prompt.txt
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
+              echo "Check for upstream repository modifications from https://github.com/WildKernels/OnePlus_KernelSU_SUSFS."
+              echo "If there are new updates, YOU MUST integrate them. Use the following command to fetch safely:"
+              echo "\`git -c http.extraHeader=\"\" fetch --no-tags https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.git main:upstream-main\`"
+              echo "Then, use standard \`git merge upstream-main\` into the current branch."
+              echo ""
+              cat guidelines.txt
+              echo ""
+              echo "## ⚠️ Abort Condition"
+              echo "If upstream modifications are incomplete or broken, actively ABANDON this sync and leave a comment."
+            } > final_prompt.txt
+          elif [[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]]; then
+            # INTERACTIVE COMMENT LOGIC
+            {
+              echo "You are responding to a user request in a Pull Request comment."
+              echo "Carefully implement the requested changes, but YOU MUST strictly follow the project safety guidelines below:"
+              echo ""
+              cat guidelines.txt
+            } > final_prompt.txt
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.prompt }}" != "" ]]; then
+            # CUSTOM DISPATCH LOGIC
+            {
+              echo "${{ github.event.inputs.prompt }}"
+              echo ""
+              echo "---"
+              echo "IMPORTANT: While performing the task above, you MUST adhere to the project safety guidelines:"
+              echo ""
+              cat guidelines.txt
+            } > final_prompt.txt
           else
-            echo "prompt=" >> "$GITHUB_OUTPUT"
+            echo "" > final_prompt.txt
           fi
+
+          # 3. Output the result
+          {
+            echo 'prompt<<EOF'
+            cat final_prompt.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
@@ -310,7 +310,8 @@ jobs:
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
           # Use GH_PAT if available (to trigger recursive builds), fallback to GITHUB_TOKEN
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          # Renamed to GITHUB_TOKEN to satisfy the action's internal permission assertion.
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: "The matrix test build failed for one or more devices. Please check the GitHub Actions logs for the failed 'test-build' jobs to identify the compilation errors. Fix the code to resolve these compilation errors and push the updates to the PR branch. \n\nIMPORTANT RE-TRIGGER RULE: Even if you find no bugs to fix or your investigation results in no code changes, YOU MUST push a commit to the PR branch to re-trigger the verification. Use `git commit --allow-empty -m 'chore: trigger re-verification'` if necessary. Verification MUST run again.\n\nIF YOU ENCOUNTER A TOOLCHAIN CACHE ERROR (e.g., '[FATAL ERROR] Toolchain AnyKernel3... NOT FOUND in GitHub Release cache!'):\nThis means a newly added toolchain hasn't been mirrored to GitHub releases yet. You MUST manually trigger the mirror workflow for your PR branch using the following command in your terminal:\n`gh workflow run mirror-toolchains.yml --ref <your-pr-branch-name>`\nWait a minute for it to complete, and then trigger a new test build by pushing an empty commit."
