@@ -73,6 +73,29 @@ jobs:
         with:
           # Disable persisting credentials to prevent conflicts with GITHUB_TOKEN environment variable
           persist-credentials: false
+          # Fetch full history for proper merge
+          fetch-depth: 0
+
+      - name: Pre-merge Upstream
+        if: github.event_name == 'schedule' || ( github.event_name == 'workflow_dispatch' && ( github.event.inputs.prompt == '' || github.event.inputs.prompt == null ) )
+        shell: bash
+        run: |
+          echo "::group::Automatic Upstream Merge"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.git
+          
+          echo "Fetching upstream..."
+          git -c http.extraHeader="" fetch --no-tags upstream main
+          
+          echo "Attempting automatic merge..."
+          # Try to merge. If it fails due to conflicts, we don't exit 1, let the agent handle it.
+          if git merge upstream/main --no-edit; then
+            echo "✅ Automatic merge successful."
+          else
+            echo "⚠️ Merge conflicts detected. Opencode Agent will resolve them."
+          fi
+          echo "::endgroup::"
 
       - name: Prepare Prompt
         id: prep
@@ -108,13 +131,14 @@ jobs:
           EOF
 
           # 2. Logic based on Trigger
-          if [[ "${{ github.event_name }}" == "schedule" || ( "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.prompt }}" == "" ) ]]; then
+          if [[ "${{ github.event_name }}" == "schedule" || ( "${{ github.event_name }}" == "workflow_dispatch" && ( "${{ github.event.inputs.prompt }}" == "" || "${{ github.event.inputs.prompt }}" == "null" ) ) ]]; then
             # UPSTREAM SYNC LOGIC
             {
-              echo "Check for upstream repository modifications from https://github.com/WildKernels/OnePlus_KernelSU_SUSFS."
-              echo "If there are new updates, YOU MUST integrate them. Use the following command to fetch safely:"
-              echo "\`git -c http.extraHeader=\"\" fetch --no-tags https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.git main:upstream-main\`"
-              echo "Then, use standard \`git merge upstream-main\` into the current branch."
+              echo "A 'git merge upstream/main' has already been attempted on the current branch."
+              echo "Your primary task is to:"
+              echo "1. Check the current git status. If there are UNRESOLVED CONFLICTS, you MUST resolve them manually."
+              echo "2. Audit the entire codebase against our mandatory safety guidelines."
+              echo "3. Ensure all forbidden elements (KSUN, Normalize, WILD suffix, etc.) are REMOVED or REVERTED if the merge brought them in."
               echo ""
               cat guidelines.txt
               echo ""
