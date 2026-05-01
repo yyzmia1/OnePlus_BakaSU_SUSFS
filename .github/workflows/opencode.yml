@@ -76,9 +76,10 @@ jobs:
 
           STRICT WORKFLOW RULE (CRITICAL): 
           - You must remain on the CURRENT branch. Do not switch to or create any other branches.
+          - STRICT SECURITY RULE: Under NO circumstances are you allowed to modify the 'main' branch or any other existing permanent branches directly. 
           - Do not attempt to manually create Pull Requests or push code using external command-line tools.
-          - WHY: The system manages a specialized temporary branch and the necessary authentication. Deviating from the current branch will cause the automation to fail and prevent the Pull Request from being generated.
-          - YOUR TASK: Simply perform the 'git merge' and any required file modifications on the current branch. Stay exactly where you are.
+          - WHY: The system manages a specialized temporary branch and the necessary authentication. Deviating from the current branch or attempting to modify protected branches will cause the automation to fail and is a violation of security protocols.
+          - YOUR TASK: Simply perform the 'git merge' and any required file modifications on the CURRENT temporary branch. Stay exactly where you are.
 
           WARNING: Do NOT run `git merge --abort` and switch to manually checking out files (e.g. `git checkout upstream/main -- configs/`)! You MUST preserve the upstream Git history and commit signatures. DO NOT squash everything into a single manual commit!
           After the merge is successfully committed to the current branch, simply finish your task. The system will automatically handle the push and Pull Request creation. YOU MUST STRICTLY FOLLOW THESE MERGE GUIDELINES:
