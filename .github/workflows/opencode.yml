@@ -221,6 +221,10 @@ jobs:
           model: custom-openai/${{ secrets.OPENAI_MODEL }}
           prompt: ${{ steps.prep.outputs.prompt }}
 
+      - name: Cleanup Custom Provider Config
+        if: always()
+        run: rm -f opencode.json
+
       - name: Notify TG (Agent Finish)
         if: always()
         continue-on-error: true
