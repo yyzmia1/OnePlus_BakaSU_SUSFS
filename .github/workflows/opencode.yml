@@ -87,6 +87,8 @@ jobs:
           else
             echo "⚠️ Merge conflicts detected. Opencode Agent will resolve them."
           fi
+          # 暂存合并结果（包括冲突文件），确保后续切换分支顺利
+          git add -A
           echo "::endgroup::"
 
       # 第二步：自动清洗 (必须在 merge 之后，防止被 merge 覆盖)
@@ -119,8 +121,11 @@ jobs:
               if not skip: new_lines.append(line)
           with open(path, 'w') as f: f.writelines(new_lines)
           "
+
+          # 关键点：将上述修改全部暂存 (Stage)，防止 Agent 在 checkout 时报冲突
+          git add -A
           
-          echo "Codebase sanitized successfully."
+          echo "Codebase sanitized and staged successfully."
           echo "::endgroup::"
 
       - name: Prepare Prompt
