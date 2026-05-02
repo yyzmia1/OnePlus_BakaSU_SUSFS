@@ -125,7 +125,7 @@ jobs:
           git commit -m "chore: sanitize codebase and update gitignore" || echo "No changes to commit"
           echo "::endgroup::"
 
-          # 4. 生成被忽略的 Provider 配置 (此时它已经是 ignored 状态，git checkout 会跳过它)
+          # 4. 最后：生成被忽略的 Provider 配置 (此时它已经是 ignored 状态，git checkout 会跳过它)
           echo "::group::Generating ignored opencode.json"
           cat << EOF > opencode.json
           {
@@ -150,6 +150,9 @@ jobs:
             }
           }
           EOF
+          
+          # 5. 关键修复：清除本地 Git 的认证头，防止后续 Push 时出现 "Duplicate header: Authorization" 冲突
+          git config --local --unset http.https://github.com/.extraheader || echo "Already unset"
           echo "::endgroup::"
 
       - name: Prepare Prompt
