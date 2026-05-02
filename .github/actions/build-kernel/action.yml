@@ -665,14 +665,6 @@ runs:
       uses: ./action-source/.github/actions/cache/restore
       if: ${{ inputs.clean == false || inputs.clean == 'false' }}
       with:
-<<<<<<< HEAD
-        path: ${{ env.CCACHE_DIR }}
-        key: ccache-kernel-v3-${{ env.OP_MODEL }}-${{ env.OP_OS_VERSION }}-${{ env.KERNEL_FULL_VER }}-${{ env.CLANG_VERSION_SHORT }}
-        restore-keys: |
-          ccache-kernel-v3-${{ env.OP_MODEL }}-${{ env.OP_OS_VERSION }}-${{ env.KERNEL_FULL_VER }}-
-          ccache-kernel-v3-${{ env.OP_MODEL }}-${{ env.OP_OS_VERSION }}-
-   
-=======
         cache_path: ${{ env.CCACHE_DIR }}
         cache_key: ${{ inputs.ksu_type }}-v3-${{ env.OP_MODEL }}-${{ env.OP_OS_VERSION }}-${{ env.KERNEL_FULL_VER }}-${{ env.CLANG_VERSION_SHORT }}
         cache_bucket: "ccache-cache"
@@ -693,8 +685,6 @@ runs:
         restore_keys: |
           ${{ inputs.ksu_type }}-v3-LTO-${{ env.OP_MODEL }}-${{ env.OP_OS_VERSION }}-${{ env.KERNEL_FULL_VER }}-
           ${{ inputs.ksu_type }}-v3-LTO-${{ env.OP_MODEL }}-${{ env.OP_OS_VERSION }}-
-
->>>>>>> upstream/main
     - name: Check ccache
       shell: bash
       run: |
@@ -867,24 +857,7 @@ runs:
           return 1
         }
         
-<<<<<<< HEAD
-        retry_clone "https://github.com/huangdihd/AnyKernel3" "$ANYKERNEL_BRANCH"
-        retry_clone "https://github.com/TheWildJames/kernel_patches.git"
-
-        echo "Downloading SukiSU_KernelPatch..."
-        PATCH_URL=$(curl -sSL -H "Authorization: Bearer ${{ github.token }}" https://api.github.com/repos/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest | grep "browser_download_url" | grep "patch_linux" | cut -d '"' -f 4 | head -n 1)
-        
-        if [ -z "$PATCH_URL" ]; then
-          echo "::error::Failed to fetch the SukiSU_KernelPatch download link! The API might be rate-limited or the repository is inaccessible."
-          exit 1
-        fi
-        
-        echo "✅ Successfully fetched patch URL: $PATCH_URL"
-        retry_download "$PATCH_URL" "patch_linux"
-        chmod +x patch_linux
-=======
         retry_clone "https://github.com/WildKernels/kernel_patches.git" "main" "1"
->>>>>>> upstream/main
         
         if [ "${{ env.OP_SUSFS }}" = true ]; then
           echo "Using SUSFS branch/commit: $SUSFS_BRANCH"
@@ -925,10 +898,6 @@ runs:
         
         git submodule update --init --recursive
         cd KernelSU/kernel
-<<<<<<< HEAD
-        
-=======
->>>>>>> upstream/main
         BASE_VERSION=30000
         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" $BASE_VERSION)
         
@@ -2107,9 +2076,6 @@ runs:
         archive: false
         compression-level: 0
         retention-days: 90
-<<<<<<< HEAD
-ion-days: 90
-=======
 
     - name: Upload ccache log
       if: success() && inputs.debug == 'true' && steps.build_kernel_step.conclusion == 'success'
@@ -2151,4 +2117,3 @@ ion-days: 90
         github_token: ${{ inputs.github_token }}
         working_dir: "./main-source"
         compression_level: 6
->>>>>>> upstream/main
