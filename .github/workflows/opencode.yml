@@ -200,9 +200,12 @@ jobs:
                 "custom-openai": {
                   "npm": "@ai-sdk/openai-compatible",
                   "name": "Custom OpenAI Provider",
-                  "apiKey": "{env:OPENAI_API_KEY}",
                   "options": {
-                    "baseURL": process.env.OPENAI_BASE_URL
+                    "baseURL": process.env.OPENAI_BASE_URL,
+                    "apiKey": process.env.OPENAI_API_KEY,
+                    "headers": {
+                      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+                    }
                   },
                   "models": {
                     [modelName]: {
@@ -216,6 +219,7 @@ jobs:
         env:
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       # 第三步：调用 Agent
       - name: Run opencode
