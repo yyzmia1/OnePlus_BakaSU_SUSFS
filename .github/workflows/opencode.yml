@@ -193,6 +193,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const modelName = process.env.OPENAI_MODEL;
             const config = {
               "$schema": "https://opencode.ai/config.json",
               "provider": {
@@ -202,6 +203,11 @@ jobs:
                   "apiKey": "{env:OPENAI_API_KEY}",
                   "options": {
                     "baseURL": process.env.OPENAI_BASE_URL
+                  },
+                  "models": {
+                    [modelName]: {
+                      "name": "Custom Model"
+                    }
                   }
                 }
               }
@@ -209,6 +215,7 @@ jobs:
             fs.writeFileSync('opencode.json', JSON.stringify(config, null, 2));
         env:
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
 
       # 第三步：调用 Agent
       - name: Run opencode
