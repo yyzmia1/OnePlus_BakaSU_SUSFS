@@ -184,7 +184,11 @@ jobs:
               cat guidelines.txt
             } > final_prompt.txt
           elif [[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]]; then
-            { echo "Interactive mode: Respond to user request while following guidelines:"; echo ""; cat guidelines.txt; } > final_prompt.txt
+            cat << 'COMMENT_EOF' > user_comment.txt
+          ${{ github.event.comment.body }}
+          COMMENT_EOF
+            { echo "Interactive mode. The user requested the following in a PR comment:"; echo "-----------------"; cat user_comment.txt; echo "-----------------"; echo ""; echo "Please fulfill the user's request while strictly adhering to these guidelines:"; echo ""; cat guidelines.txt; } > final_prompt.txt
+            rm -f user_comment.txt
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.prompt }}" != "" ]]; then
             { echo "${{ github.event.inputs.prompt }}"; echo ""; echo "---"; cat guidelines.txt; } > final_prompt.txt
           else
@@ -192,7 +196,6 @@ jobs:
           fi
 
           { echo 'prompt<<EOF'; cat final_prompt.txt; echo 'EOF'; } >> "$GITHUB_OUTPUT"
-          # 注意：由于我们在 .gitignore 里加了它们，这里不用手动删也没关系，但为了整洁可以删
           rm -f guidelines.txt final_prompt.txt
 
       - name: Notify TG (Agent Start)
@@ -332,10 +335,32 @@ jobs:
           if [ "$STATUS" != "success" ]; then
             MSG_TEXT+="━━━━━━━━━━━━━━━━━━"$'\n'
             MSG_TEXT+="👉 <i>The build failed. To ask the agent to fix it, comment:</i>"$'\n'
-            MSG_TEXT+="<code>/opencode fix the build errors</code>"
+            MSG_TEXT+="<code>/oc please review the build logs and fix the compile errors</code>"
           fi
           PAYLOAD=$(jq -n --arg chat_id "$TG_CHAT_ID" --arg text "$MSG_TEXT" '{chat_id: $chat_id, parse_mode: "HTML", disable_web_page_preview: true, text: $text}')
           curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null
+
+      - name: Auto-Comment on PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          STATUS="${{ needs.trigger-test-build.result }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          
+          if [ "$STATUS" == "success" ]; then
+            COMMENT="✅ **Test build passed successfully!** 🎉"
+          else
+            COMMENT=$(cat << 'EOF'
+          ❌ **Test build failed.**
+          
+          The AI agent can attempt to fix the errors. Please check the action logs, and reply to this PR with:
+          `/oc please review the build logs and fix the compile errors`
+          EOF
+          )
+          fi
+          
+          gh pr comment $PR_NUMBER --body "$COMMENT"
+
       - name: Fail the workflow
         if: needs.trigger-test-build.result != 'success'
         run: exit 1
