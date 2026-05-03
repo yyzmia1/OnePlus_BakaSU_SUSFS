@@ -2,7 +2,7 @@ name: opencode
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 每天北京时间上午8点 (UTC 0:00) 触发
+    - cron: '30 0 * * *' # 每天北京时间上午8点半 (UTC 0:30) 触发，避开整点高峰
   workflow_dispatch: # 添加手动触发
     inputs:
       prompt:
