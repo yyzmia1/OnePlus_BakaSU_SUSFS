@@ -2,8 +2,8 @@ name: opencode
 
 on:
   schedule:
-    - cron: '30 0 * * *' # 每天北京时间上午8点半 (UTC 0:30) 触发，避开整点高峰
-  workflow_dispatch: # 添加手动触发
+    - cron: '0 0 * * *'
+  workflow_dispatch:
     inputs:
       prompt:
         description: 'Custom prompt for the agent (leave empty for daily sync)'
@@ -69,11 +69,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          # Set to false to avoid "Duplicate header: Authorization" conflict with GITHUB_TOKEN in env
           persist-credentials: false
           fetch-depth: 0
 
-      # 关键步骤：合并、清洗、配置 .gitignore，并提交。最后生成被忽略的 config
       - name: Prepare Codebase & Config
         shell: bash
         env:
@@ -86,7 +84,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           echo "::endgroup::"
 
-          # 1. 自动合并
           if [[ "${{ github.event_name }}" == "schedule" || ( "${{ github.event_name }}" == "workflow_dispatch" && ( "${{ github.event.inputs.prompt }}" == "" || "${{ github.event.inputs.prompt }}" == "null" ) ) ]]; then
             echo "::group::Automatic Upstream Merge"
             git remote add upstream https://github.com/WildKernels/OnePlus_KernelSU_SUSFS.git
@@ -95,7 +92,6 @@ jobs:
             echo "::endgroup::"
           fi
 
-          # 2. 自动清洗代码并配置 .gitignore
           echo "::group::Sanitize & Ignore Rules"
           find manifests -name "*.xml" -exec sed -i 's|github.com/WildKernels/AnyKernel3|github.com/huangdihd/AnyKernel3|g' {} +
           find manifests -name "*.xml" -exec sed -i 's|fetch="https://github.com/WildKernels" name="wild"|fetch="https://github.com/huangdihd" name="wild"|g' {} +
@@ -116,17 +112,14 @@ jobs:
             with open(path, 'w') as f: f.writelines(new_lines)
           "
 
-          # 加入 ignore 列表，防止 opencode.json 导致 checkout 冲突
           echo "opencode.json" >> .gitignore
           echo "guidelines.txt" >> .gitignore
           echo "final_prompt.txt" >> .gitignore
 
-          # 3. 关键：将上述修改全部提交
           git add -A
           git commit -m "chore: sanitize codebase and update gitignore" || echo "No changes to commit"
           echo "::endgroup::"
 
-          # 4. 生成被忽略的 Provider 配置 (此时它已经是 ignored 状态，git checkout 会跳过它)
           echo "::group::Generating ignored opencode.json"
           cat << EOF > opencode.json
           {
@@ -216,7 +209,6 @@ jobs:
             curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null
           done
 
-      # 第三步：调用 Agent
       - name: Run opencode
         id: agent
         uses: anomalyco/opencode/github@latest
