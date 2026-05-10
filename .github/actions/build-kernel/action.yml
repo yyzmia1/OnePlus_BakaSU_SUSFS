@@ -1077,16 +1077,36 @@ runs:
           SUSFS_INSERT_LINE="#ifdef CONFIG_KSU_SUSFS_SUS_MAP\n#include <linux\/susfs_def.h>\n#endif \/\/ #ifdef CONFIG_KSU_SUSFS_SUS_MAP"
           INSERTED=false
           if [ "${{ env.ANDROID_VER }}" = "android15" ] && [ "${{ env.KERNEL_VER }}" = "6.6" ]; then
+            # Ensure context lines the patch expects: vmalloc.h, sched/sysctl.h, zswap.h
+            if ! grep -q '#include <linux/sched/sysctl.h>' ./mm/memory.c; then
+              sed -i '/#include <linux\/vmalloc.h>/a #include <linux\/sched\/sysctl.h>' ./mm/memory.c
+              echo "Added missing #include <linux/sched/sysctl.h> to mm/memory.c"
+            fi
+            if ! grep -q '#include <linux/zswap.h>' ./mm/memory.c; then
+              sed -i '/#include <linux\/sched\/sysctl.h>/a #include <linux\/zswap.h>' ./mm/memory.c
+              echo "Added missing #include <linux/zswap.h> to mm/memory.c"
+            fi
             if grep -q '#include <linux/zswap.h>' ./mm/memory.c; then
               sed -i "/#include <linux\/zswap.h>/a $SUSFS_INSERT_LINE" ./mm/memory.c
               INSERTED=true
               echo "Pre-added SUSFS include to mm/memory.c after zswap.h (android15-6.6)"
             fi
           fi
-          if [ "$INSERTED" = false ] && grep -q '#include <linux/vmalloc.h>' ./mm/memory.c; then
-            sed -i "/#include <linux\/vmalloc.h>/a $SUSFS_INSERT_LINE" ./mm/memory.c
-            INSERTED=true
-            echo "Pre-added SUSFS include to mm/memory.c after vmalloc.h"
+          if [ "$INSERTED" = false ]; then
+            # Ensure context lines the patch expects: perf_event.h, ptrace.h, vmalloc.h
+            if ! grep -q '#include <linux/perf_event.h>' ./mm/memory.c; then
+              sed -i '/#include <linux\/vmalloc.h>/i #include <linux\/perf_event.h>' ./mm/memory.c
+              echo "Added missing #include <linux/perf_event.h> to mm/memory.c"
+            fi
+            if ! grep -q '#include <linux/ptrace.h>' ./mm/memory.c; then
+              sed -i '/#include <linux\/perf_event.h>/a #include <linux\/ptrace.h>' ./mm/memory.c
+              echo "Added missing #include <linux/ptrace.h> to mm/memory.c"
+            fi
+            if grep -q '#include <linux/vmalloc.h>' ./mm/memory.c; then
+              sed -i "/#include <linux\/vmalloc.h>/a $SUSFS_INSERT_LINE" ./mm/memory.c
+              INSERTED=true
+              echo "Pre-added SUSFS include to mm/memory.c after vmalloc.h"
+            fi
           fi
           if [ "$INSERTED" = false ]; then
             echo "::warning::Could not find anchor include to pre-add SUSFS include to mm/memory.c"
