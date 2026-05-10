@@ -46,6 +46,12 @@ def sanitize():
         with open(action_path, 'w') as f:
             f.writelines(new_lines)
             
+    # 5. Delete Kernel Monitor Workflow
+    monitor_workflow = ".github/workflows/oplus-kernel-monitor.yml"
+    if os.path.exists(monitor_workflow):
+        os.remove(monitor_workflow)
+        print(f"Deleted {monitor_workflow}")
+            
     print(":::endgroup:::")
 
 if __name__ == "__main__":

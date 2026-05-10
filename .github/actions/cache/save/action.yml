@@ -60,16 +60,15 @@ runs:
         
         echo "::group:: Checking Release State"
         
-        git fetch --tags --force
+        git fetch --tags --force || true
         
-        if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-          echo "Tag '$TAG_NAME' not found. Creating backdated release..."
-          GIT_COMMITTER_DATE="2015-01-01T12:00:00" git tag -a "$TAG_NAME" -m "General Cache Storage"
-          if git push origin "$TAG_NAME" --force; then
-            gh release create "$TAG_NAME" --title "General Cache" --notes "Automated storage for build assets" --repo "$TARGET_REPO" || true
-          else
-            echo "Push failed, tag might have been created by a parallel job. Continuing..."
+        if ! gh release view "$TAG_NAME" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+          echo "Release '$TAG_NAME' not found. Creating backdated release..."
+          if ! git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
+            GIT_COMMITTER_DATE="2015-01-01T12:00:00" git tag -a "$TAG_NAME" -m "General Cache Storage"
+            git push origin "$TAG_NAME" --force || echo "Push failed, tag might have been created by a parallel job."
           fi
+          gh release create "$TAG_NAME" --title "General Cache" --notes "Automated storage for build assets" --repo "$TARGET_REPO" || echo "Release might have been created by a parallel job."
         else
           echo "Release '$TAG_NAME' already exists. Ready for upload."
         fi

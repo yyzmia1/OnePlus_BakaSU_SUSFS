@@ -27,16 +27,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Tag not found. Creating backdated tag and release..."
+          if ! gh release view "$TAG_NAME" --repo "$TARGET_REPO" >/dev/null 2>&1; then
+            echo "Release not found. Creating backdated tag and release..."
             
             git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git config --local user.name "github-actions[bot]"
-            GIT_COMMITTER_DATE="2015-01-01T12:00:00" git tag -a "$TAG_NAME" -m "Internal Toolchains Cache"
-            git push origin "$TAG_NAME"
             
-            echo "Release not found. Creating..."
-            gh release create "$TAG_NAME" --title "Toolchains Mirror Cache" --notes "Deduplicated Toolchains for Kernel Build" --repo "$TARGET_REPO"
+            if ! git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
+              GIT_COMMITTER_DATE="2015-01-01T12:00:00" git tag -a "$TAG_NAME" -m "Internal Toolchains Cache"
+              git push origin "$TAG_NAME" || true
+            fi
+            
+            echo "Creating release..."
+            gh release create "$TAG_NAME" --title "Toolchains Mirror Cache" --notes "Deduplicated Toolchains for Kernel Build" --repo "$TARGET_REPO" || true
           else
             echo "Release 'toolchain-cache' already exists. Skipping creation."
           fi
