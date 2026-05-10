@@ -1069,11 +1069,12 @@ runs:
           fi
         fi
         
-        # Ensure mm/memory.c has the context lines the SUSFS patch expects
-        # so the patch applies cleanly without rejects.
-        #   android13-5.15: patch expects perf_event.h, ptrace.h before vmalloc.h
-        #   android15-6.6:  patch expects sched/sysctl.h, zswap.h after vmalloc.h
+        # Pre-modify mm/memory.c so the SUSFS patch Hunk #1 applies cleanly.
+        # The patch expects specific context lines and adds a SUSFS include block.
+        # We ensure the context lines exist AND pre-add the SUSFS include block,
+        # so patch --forward sees it as already applied and skips Hunk #1.
         if [ "${{ env.ANDROID_VER }}" = "android15" ] && [ "${{ env.KERNEL_VER }}" = "6.6" ]; then
+          # Patch expects: vmalloc.h, sched/sysctl.h, zswap.h, then SUSFS include
           if ! grep -q '#include <linux/sched/sysctl.h>' ./mm/memory.c; then
             sed -i '/#include <linux\/vmalloc.h>/a #include <linux\/sched\/sysctl.h>' ./mm/memory.c
             echo "Added missing #include <linux/sched/sysctl.h> to mm/memory.c"
@@ -1082,7 +1083,12 @@ runs:
             sed -i '/#include <linux\/sched\/sysctl.h>/a #include <linux\/zswap.h>' ./mm/memory.c
             echo "Added missing #include <linux/zswap.h> to mm/memory.c"
           fi
+          if ! grep -q '#include <linux/susfs_def.h>' ./mm/memory.c; then
+            sed -i '/#include <linux\/zswap.h>/a #ifdef CONFIG_KSU_SUSFS_SUS_MAP\n#include <linux\/susfs_def.h>\n#endif \/\/ #ifdef CONFIG_KSU_SUSFS_SUS_MAP' ./mm/memory.c
+            echo "Pre-added SUSFS include block to mm/memory.c (android15-6.6)"
+          fi
         else
+          # Patch expects: perf_event.h, ptrace.h, vmalloc.h, then SUSFS include
           if ! grep -q '#include <linux/perf_event.h>' ./mm/memory.c; then
             sed -i '/#include <linux\/vmalloc.h>/i #include <linux\/perf_event.h>' ./mm/memory.c
             echo "Added missing #include <linux/perf_event.h> to mm/memory.c"
@@ -1090,6 +1096,10 @@ runs:
           if ! grep -q '#include <linux/ptrace.h>' ./mm/memory.c; then
             sed -i '/#include <linux\/perf_event.h>/a #include <linux\/ptrace.h>' ./mm/memory.c
             echo "Added missing #include <linux/ptrace.h> to mm/memory.c"
+          fi
+          if ! grep -q '#include <linux/susfs_def.h>' ./mm/memory.c; then
+            sed -i '/#include <linux\/vmalloc.h>/a #ifdef CONFIG_KSU_SUSFS_SUS_MAP\n#include <linux\/susfs_def.h>\n#endif \/\/ #ifdef CONFIG_KSU_SUSFS_SUS_MAP' ./mm/memory.c
+            echo "Pre-added SUSFS include block to mm/memory.c (other)"
           fi
         fi
         
