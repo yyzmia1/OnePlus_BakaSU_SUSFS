@@ -1070,10 +1070,26 @@ runs:
         fi
         
         # Pre-add SUSFS include to mm/memory.c if missing (handles upstream drift)
+        # The SUSFS patch Hunk #1 adds this include at different positions per kernel version:
+        #   android13-5.15: after #include <linux/vmalloc.h>, before #include <trace/hooks/mm.h>
+        #   android15-6.6:  after #include <linux/zswap.h>
         if ! grep -q '#include <linux/susfs_def.h>' ./mm/memory.c; then
-          if grep -q '#include <linux/vmalloc.h>' ./mm/memory.c; then
-            sed -i '/#include <linux\/vmalloc.h>/a #ifdef CONFIG_KSU_SUSFS_SUS_MAP\n#include <linux\/susfs_def.h>\n#endif \/\/ #ifdef CONFIG_KSU_SUSFS_SUS_MAP' ./mm/memory.c
-            echo "Pre-added SUSFS include to mm/memory.c"
+          SUSFS_INSERT_LINE="#ifdef CONFIG_KSU_SUSFS_SUS_MAP\n#include <linux\/susfs_def.h>\n#endif \/\/ #ifdef CONFIG_KSU_SUSFS_SUS_MAP"
+          INSERTED=false
+          if [ "${{ env.ANDROID_VER }}" = "android15" ] && [ "${{ env.KERNEL_VER }}" = "6.6" ]; then
+            if grep -q '#include <linux/zswap.h>' ./mm/memory.c; then
+              sed -i "/#include <linux\/zswap.h>/a $SUSFS_INSERT_LINE" ./mm/memory.c
+              INSERTED=true
+              echo "Pre-added SUSFS include to mm/memory.c after zswap.h (android15-6.6)"
+            fi
+          fi
+          if [ "$INSERTED" = false ] && grep -q '#include <linux/vmalloc.h>' ./mm/memory.c; then
+            sed -i "/#include <linux\/vmalloc.h>/a $SUSFS_INSERT_LINE" ./mm/memory.c
+            INSERTED=true
+            echo "Pre-added SUSFS include to mm/memory.c after vmalloc.h"
+          fi
+          if [ "$INSERTED" = false ]; then
+            echo "::warning::Could not find anchor include to pre-add SUSFS include to mm/memory.c"
           fi
         fi
         
