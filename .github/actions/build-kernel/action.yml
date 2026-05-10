@@ -1069,71 +1069,31 @@ runs:
           fi
         fi
         
-        # Pre-add SUSFS include to mm/memory.c if missing (handles upstream drift)
-        # The SUSFS patch Hunk #1 adds this include at different positions per kernel version:
-        #   android13-5.15: after #include <linux/vmalloc.h>, before #include <trace/hooks/mm.h>
-        #   android15-6.6:  after #include <linux/zswap.h>
-        if ! grep -q '#include <linux/susfs_def.h>' ./mm/memory.c; then
-          SUSFS_INSERT_LINE="#ifdef CONFIG_KSU_SUSFS_SUS_MAP\n#include <linux\/susfs_def.h>\n#endif \/\/ #ifdef CONFIG_KSU_SUSFS_SUS_MAP"
-          INSERTED=false
-          if [ "${{ env.ANDROID_VER }}" = "android15" ] && [ "${{ env.KERNEL_VER }}" = "6.6" ]; then
-            # Ensure context lines the patch expects: vmalloc.h, sched/sysctl.h, zswap.h
-            if ! grep -q '#include <linux/sched/sysctl.h>' ./mm/memory.c; then
-              sed -i '/#include <linux\/vmalloc.h>/a #include <linux\/sched\/sysctl.h>' ./mm/memory.c
-              echo "Added missing #include <linux/sched/sysctl.h> to mm/memory.c"
-            fi
-            if ! grep -q '#include <linux/zswap.h>' ./mm/memory.c; then
-              sed -i '/#include <linux\/sched\/sysctl.h>/a #include <linux\/zswap.h>' ./mm/memory.c
-              echo "Added missing #include <linux/zswap.h> to mm/memory.c"
-            fi
-            if grep -q '#include <linux/zswap.h>' ./mm/memory.c; then
-              sed -i "/#include <linux\/zswap.h>/a $SUSFS_INSERT_LINE" ./mm/memory.c
-              INSERTED=true
-              echo "Pre-added SUSFS include to mm/memory.c after zswap.h (android15-6.6)"
-            fi
+        # Ensure mm/memory.c has the context lines the SUSFS patch expects
+        # so the patch applies cleanly without rejects.
+        #   android13-5.15: patch expects perf_event.h, ptrace.h before vmalloc.h
+        #   android15-6.6:  patch expects sched/sysctl.h, zswap.h after vmalloc.h
+        if [ "${{ env.ANDROID_VER }}" = "android15" ] && [ "${{ env.KERNEL_VER }}" = "6.6" ]; then
+          if ! grep -q '#include <linux/sched/sysctl.h>' ./mm/memory.c; then
+            sed -i '/#include <linux\/vmalloc.h>/a #include <linux\/sched\/sysctl.h>' ./mm/memory.c
+            echo "Added missing #include <linux/sched/sysctl.h> to mm/memory.c"
           fi
-          if [ "$INSERTED" = false ]; then
-            # Ensure context lines the patch expects: perf_event.h, ptrace.h, vmalloc.h
-            if ! grep -q '#include <linux/perf_event.h>' ./mm/memory.c; then
-              sed -i '/#include <linux\/vmalloc.h>/i #include <linux\/perf_event.h>' ./mm/memory.c
-              echo "Added missing #include <linux/perf_event.h> to mm/memory.c"
-            fi
-            if ! grep -q '#include <linux/ptrace.h>' ./mm/memory.c; then
-              sed -i '/#include <linux\/perf_event.h>/a #include <linux\/ptrace.h>' ./mm/memory.c
-              echo "Added missing #include <linux/ptrace.h> to mm/memory.c"
-            fi
-            if grep -q '#include <linux/vmalloc.h>' ./mm/memory.c; then
-              sed -i "/#include <linux\/vmalloc.h>/a $SUSFS_INSERT_LINE" ./mm/memory.c
-              INSERTED=true
-              echo "Pre-added SUSFS include to mm/memory.c after vmalloc.h"
-            fi
+          if ! grep -q '#include <linux/zswap.h>' ./mm/memory.c; then
+            sed -i '/#include <linux\/sched\/sysctl.h>/a #include <linux\/zswap.h>' ./mm/memory.c
+            echo "Added missing #include <linux/zswap.h> to mm/memory.c"
           fi
-          if [ "$INSERTED" = false ]; then
-            echo "::warning::Could not find anchor include to pre-add SUSFS include to mm/memory.c"
+        else
+          if ! grep -q '#include <linux/perf_event.h>' ./mm/memory.c; then
+            sed -i '/#include <linux\/vmalloc.h>/i #include <linux\/perf_event.h>' ./mm/memory.c
+            echo "Added missing #include <linux/perf_event.h> to mm/memory.c"
+          fi
+          if ! grep -q '#include <linux/ptrace.h>' ./mm/memory.c; then
+            sed -i '/#include <linux\/perf_event.h>/a #include <linux\/ptrace.h>' ./mm/memory.c
+            echo "Added missing #include <linux/ptrace.h> to mm/memory.c"
           fi
         fi
         
-        patch -p1 --forward < "$SUSFS_FOLDER/kernel_patches/50_add_susfs_in_${{ env.SUSFS_KERNEL_BRANCH }}.patch" || {
-          PATCH_EXIT=$?
-          echo "::warning::SUSFS patch exited with code $PATCH_EXIT. Checking rejects..."
-          REJ_FILES=$(find . -name "*.rej" -type f)
-          if [ -n "$REJ_FILES" ]; then
-            OTHER_REJ=$(echo "$REJ_FILES" | grep -vF "mm/memory.c.rej" || true)
-            if [ -n "$OTHER_REJ" ]; then
-              echo "::error::Unexpected .rej files found:"
-              echo "$OTHER_REJ"
-              for f in $REJ_FILES; do echo "::error::--- $f ---"; cat "$f"; done
-              exit 1
-            fi
-            if ! grep -q '#include <linux/susfs_def.h>' ./mm/memory.c; then
-              echo "::error::mm/memory.c reject exists but SUSFS include is missing"
-              cat ./mm/memory.c.rej
-              exit 1
-            fi
-            echo "::warning::mm/memory.c Hunk #1 was pre-applied, cleaning up .rej"
-            rm -f ./mm/memory.c.rej
-          fi
-        }
+        patch -p1 --forward < "$SUSFS_FOLDER/kernel_patches/50_add_susfs_in_${{ env.SUSFS_KERNEL_BRANCH }}.patch"
         
         # Revert Fake kernel patch
         if [ "$fake_patched" = 1 ]; then
