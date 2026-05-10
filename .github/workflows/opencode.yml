@@ -112,10 +112,6 @@ jobs:
             with open(path, 'w') as f: f.writelines(new_lines)
           "
 
-          echo "opencode.json" >> .gitignore
-          echo "guidelines.txt" >> .gitignore
-          echo "final_prompt.txt" >> .gitignore
-
           git add -A
           git commit -m "chore: sanitize codebase and update gitignore" || echo "No changes to commit"
           echo "::endgroup::"
