@@ -51,14 +51,12 @@ jobs:
     name: Run Opencode Agent
     needs: [check-upstream]
     if: >-
-      ${{
         always() && (
           (github.event_name == 'schedule' && needs.check-upstream.result == 'success' && needs.check-upstream.outputs.has_updates == 'true') ||
           (github.event_name == 'workflow_dispatch') ||
           (github.event_name == 'issue_comment' && (contains(github.event.comment.body, ' /oc') || startsWith(github.event.comment.body, '/oc') || contains(github.event.comment.body, ' /opencode') || startsWith(github.event.comment.body, '/opencode'))) ||
           (github.event_name == 'pull_request_review_comment' && (contains(github.event.comment.body, ' /oc') || startsWith(github.event.comment.body, '/oc') || contains(github.event.comment.body, ' /opencode') || startsWith(github.event.comment.body, '/opencode')))
         )
-      }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -66,7 +64,6 @@ jobs:
       pull-requests: write
       issues: write
       actions: write
-      workflows: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
