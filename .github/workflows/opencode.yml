@@ -27,6 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Check for updates
@@ -68,6 +69,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           persist-credentials: true
           fetch-depth: 0
 
@@ -77,7 +79,7 @@ jobs:
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           echo "::group::Configuring Git"
           git config user.name "github-actions[bot]"
@@ -117,7 +119,7 @@ jobs:
       - name: Prepare Prompt
         id: prep
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           TASK_DESC="Synchronizing upstream and resolving conflicts."
           if [[ "${{ github.event_name }}" == "schedule" || ( "${{ github.event_name }}" == "workflow_dispatch" && ( "${{ github.event.inputs.prompt }}" == "" || "${{ github.event.inputs.prompt }}" == "null" ) ) ]]; then
@@ -174,8 +176,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ env.OPENAI_BASE_URL }}
           OPENAI_MODEL: ${{ env.OPENAI_MODEL }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         with:
           model: custom-openai/${{ env.OPENAI_MODEL }}
           prompt: ${{ steps.prep.outputs.prompt }}
@@ -219,10 +221,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
         with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
       - name: Check for Changes & Trigger
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           git fetch origin ${{ github.event.pull_request.base.ref }}
           if git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD | grep -E 'manifests/|configs/'; then
@@ -250,7 +253,7 @@ jobs:
     steps:
       - name: Trigger build-kernel-release.yml
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           PR_BRANCH="${{ github.event.pull_request.head.ref }}"
           gh workflow run build-kernel-release.yml --repo ${{ github.repository }} --ref "$PR_BRANCH" -f make_release=false
@@ -276,6 +279,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Prepare & Send TG Message
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
@@ -296,7 +301,7 @@ jobs:
 
       - name: Auto-Comment on PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           STATUS="${{ needs.trigger-test-build.result }}"
           PR_NUMBER="${{ github.event.pull_request.number }}"
