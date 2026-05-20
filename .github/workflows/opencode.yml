@@ -93,8 +93,8 @@ jobs:
           GITHUB_TOKEN: ${{ (steps.detect.outputs.use_pat == 'true' && secrets.PAT_TOKEN) || secrets.GITHUB_TOKEN }}
         run: |
           echo "::group::Configuring Git"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "opencode"
+          git config user.email "opencode@anomaly.co"
           # Ensure git uses the token for pushing
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
           echo "::endgroup::"
