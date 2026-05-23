@@ -131,6 +131,7 @@ jobs:
         id: prep
         env:
           GH_TOKEN: ${{ (steps.detect.outputs.use_pat == 'true' && secrets.PAT_TOKEN) || secrets.GITHUB_TOKEN }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           TASK_DESC="Synchronizing upstream and resolving conflicts."
           if [[ "${{ github.event_name }}" == "schedule" || ( "${{ github.event_name }}" == "workflow_dispatch" && ( "${{ github.event.inputs.prompt }}" == "" || "${{ github.event.inputs.prompt }}" == "null" ) ) ]]; then
@@ -147,7 +148,27 @@ jobs:
             PR_OR_ISSUE_NUMBER="${{ github.event.issue.number || github.event.pull_request.number }}"
             echo "Fetching comment history for #$PR_OR_ISSUE_NUMBER..."
             gh api repos/${{ github.repository }}/issues/$PR_OR_ISSUE_NUMBER/comments | jq -r '.[].body' > user_comment.txt
-            { echo "Interactive mode. The user requested the following in a PR/Issue comment thread:"; echo "-----------------"; cat user_comment.txt; echo "-----------------"; echo ""; echo "Please fulfill the user's request while strictly adhering to these guidelines:"; echo ""; cat .github/opencode/guidelines.txt; } > final_prompt.txt
+            
+            TRIMMED_COMMENT=$(echo "$COMMENT_BODY" | xargs)
+            EXTRA_INSTRUCTION=""
+            if [[ "$TRIMMED_COMMENT" == "/oc" || "$TRIMMED_COMMENT" == "/opencode" ]]; then
+              EXTRA_INSTRUCTION="The user triggered the agent with an empty '/oc' command. This is a shorthand request. Please implicitly execute the following: \"please review the build logs, fetch the corresponding kernel source code and other .patch files if needed, and fix the compile errors\""
+            fi
+            
+            { 
+              echo "Interactive mode. The user requested the following in a PR/Issue comment thread:"; 
+              echo "-----------------"; 
+              cat user_comment.txt; 
+              echo "-----------------"; 
+              if [[ -n "$EXTRA_INSTRUCTION" ]]; then
+                echo "";
+                echo "$EXTRA_INSTRUCTION";
+              fi
+              echo ""; 
+              echo "Please fulfill the user's request while strictly adhering to these guidelines:"; 
+              echo ""; 
+              cat .github/opencode/guidelines.txt; 
+            } > final_prompt.txt
             rm -f user_comment.txt
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.prompt }}" != "" ]]; then
             TASK_DESC="Processing manual workflow dispatch prompt."
