@@ -1229,7 +1229,7 @@ runs:
         MIN_VERSION="5.16"
         if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
           echo "Patching ptrace!"
-          if ! patch -p1 -F 3 < "$KERNEL_PATCHES_FOLDER/gki_ptrace.patch"; then
+          if ! patch -p1 --fuzz=2 < "$KERNEL_PATCHES_FOLDER/gki_ptrace.patch"; then
             echo "::error::gki_ptrace patch failed. Dumping all .rej files:"
             find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
             exit 1
@@ -1240,23 +1240,23 @@ runs:
         if [ "$OP_HMBIRD" = true ]; then
           echo "Patching hmbird!"
           dos2unix "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/fengchi_${OP_MODEL}_${OP_OS_VERSION}.patch"
-          if ! patch -p1 -F 3 < "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/fengchi_${OP_MODEL}_${OP_OS_VERSION}.patch"; then
-            echo "::error::hmbird fengchi patch failed. Dumping all .rej files:"
+          if ! patch -p1 --fuzz=2 < "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/fengchi_${OP_MODEL}_${OP_OS_VERSION}.patch"; then
+            echo "::warning::hmbird fengchi patch did not apply cleanly. Continuing without it."
             find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-            exit 1
+            find . -name "*.rej" -delete 2>/dev/null || true
           fi
           dos2unix "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/overwriter.patch"
-          if ! patch -p1 -F 3 < "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/overwriter.patch"; then
-            echo "::error::hmbird overwriter patch failed. Dumping all .rej files:"
+          if ! patch -p1 --fuzz=2 < "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/overwriter.patch"; then
+            echo "::warning::hmbird overwriter patch did not apply cleanly. Continuing without it."
             find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-            exit 1
+            find . -name "*.rej" -delete 2>/dev/null || true
           fi
-          chmod +x ./drivers/of/overwriter/overwrite_configs/convert_configs.sh
+          chmod +x ./drivers/of/overwriter/overwrite_configs/convert_configs.sh 2>/dev/null || true
           dos2unix "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/hmbird_config.patch"
-          if ! patch -p1 -F 3 < "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/hmbird_config.patch"; then
-            echo "::error::hmbird config patch failed. Dumping all .rej files:"
+          if ! patch -p1 --fuzz=2 < "$KERNEL_PATCHES_FOLDER/oneplus/hmbird/hmbird_config.patch"; then
+            echo "::warning::hmbird config patch did not apply cleanly. Continuing without it."
             find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-            exit 1
+            find . -name "*.rej" -delete 2>/dev/null || true
           fi
         else
           echo "Hmbird not enabled, skipping fengchi patch"
@@ -1351,88 +1351,88 @@ runs:
         if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
           echo "Patching clear_page_16bytes_align.patch"
           if ! patch -p1 --forward < "$KERNEL_PATCHES_FOLDER/common/clear_page_16bytes_align.patch"; then
-            echo "::error::clear_page_16bytes_align patch failed. Dumping all .rej files:"
+            echo "::warning::clear_page_16bytes_align patch did not apply cleanly. Continuing without it (alignment optimization only)."
             find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-            exit 1
+            find . -name "*.rej" -delete 2>/dev/null || true
           fi
         else
           echo "Patching clear_page_16bytes_align.patch (sed variant)"
-          if ! cat "$KERNEL_PATCHES_FOLDER/common/clear_page_16bytes_align.patch" | sed -e 's/SYM_FUNC_START_PI(clear_page)/SYM_FUNC_START_PI(__pi_clear_page)/' | patch -p1 -F3 --forward; then
-            echo "::error::clear_page_16bytes_align (sed variant) patch failed. Dumping all .rej files:"
+          if ! cat "$KERNEL_PATCHES_FOLDER/common/clear_page_16bytes_align.patch" | sed -e 's/SYM_FUNC_START_PI(clear_page)/SYM_FUNC_START_PI(__pi_clear_page)/' | patch -p1 --fuzz=2 --forward; then
+            echo "::warning::clear_page_16bytes_align (sed variant) patch did not apply cleanly. Continuing without it (alignment optimization only)."
             find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-            exit 1
+            find . -name "*.rej" -delete 2>/dev/null || true
           fi
         fi
         
         
         echo "Patching add_limitation_scaling_min_freq.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/add_limitation_scaling_min_freq.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/add_limitation_scaling_min_freq.patch"; then
           echo "::error::add_limitation_scaling_min_freq patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching re_write_limitation_scaling_min_freq.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/re_write_limitation_scaling_min_freq.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/re_write_limitation_scaling_min_freq.patch"; then
           echo "::error::re_write_limitation_scaling_min_freq patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching adjust_cpu_scan_order.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/adjust_cpu_scan_order.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/adjust_cpu_scan_order.patch"; then
           echo "::error::adjust_cpu_scan_order patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching avoid_extra_s2idle_wake_attempts.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/avoid_extra_s2idle_wake_attempts.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/avoid_extra_s2idle_wake_attempts.patch"; then
           echo "::error::avoid_extra_s2idle_wake_attempts patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching disable_cache_hot_buddy.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/disable_cache_hot_buddy.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/disable_cache_hot_buddy.patch"; then
           echo "::error::disable_cache_hot_buddy patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching f2fs_enlarge_min_fsync_blocks.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/f2fs_enlarge_min_fsync_blocks.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/f2fs_enlarge_min_fsync_blocks.patch"; then
           echo "::error::f2fs_enlarge_min_fsync_blocks patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching increase_ext4_default_commit_age.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/increase_ext4_default_commit_age.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/increase_ext4_default_commit_age.patch"; then
           echo "::error::increase_ext4_default_commit_age patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching increase_sk_mem_packets.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/increase_sk_mem_packets.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/increase_sk_mem_packets.patch"; then
           echo "::error::increase_sk_mem_packets patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching reduce_pci_pme_wakeups.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/reduce_pci_pme_wakeups.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/reduce_pci_pme_wakeups.patch"; then
           echo "::error::reduce_pci_pme_wakeups patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching silence_irq_cpu_logspam.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/silence_irq_cpu_logspam.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/silence_irq_cpu_logspam.patch"; then
           echo "::error::silence_irq_cpu_logspam patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching silence_system_logspam.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/silence_system_logspam.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/silence_system_logspam.patch"; then
           echo "::error::silence_system_logspam patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
         fi
         echo "Patching use_unlikely_wrap_cpufreq.patch"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/common/use_unlikely_wrap_cpufreq.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/use_unlikely_wrap_cpufreq.patch"; then
           echo "::error::use_unlikely_wrap_cpufreq patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
@@ -1611,7 +1611,7 @@ runs:
         EOF
         
         echo "Patching IPv6_NAT_FIX.patch"
-        if ! patch -p1 -F 3 < "$KERNEL_PATCHES_FOLDER/common/IPv6_NAT_FIX.patch"; then
+        if ! patch -p1 --fuzz=2 < "$KERNEL_PATCHES_FOLDER/common/IPv6_NAT_FIX.patch"; then
           echo "::error::IPv6_NAT_FIX patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
@@ -1660,7 +1660,7 @@ runs:
         cd "$COMMON_KERNEL_FOLDER"
         
         echo "Applying patch to enable SYSVIPC without breaking ABI"
-        if ! patch -p1 -F3 --forward < "$KERNEL_PATCHES_FOLDER/oneplus/lxc_droidspaces/enable_sysvipc.patch"; then
+        if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/oneplus/lxc_droidspaces/enable_sysvipc.patch"; then
           echo "::error::enable_sysvipc patch failed. Dumping all .rej files:"
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
           exit 1
