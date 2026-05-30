@@ -8,7 +8,7 @@
   "os_version": "OOS16",
   "lto": "none",
   "zyc_compiler": "",
-  "c_compiler": "kernel_platform/prebuilts/clang/host/linux-x86/clang-r536225/bin",
+  "c_compiler": "kernel_platform/prebuilts/clang/host/linux-x86/clang-r547379/bin",
   "rust_compiler": "kernel_platform/prebuilts/rust/linux-x86/1.82.0/bin",
   "bindgen": "",
   "rust_build": true,
