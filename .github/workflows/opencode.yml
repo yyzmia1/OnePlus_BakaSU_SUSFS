@@ -127,6 +127,54 @@ jobs:
           envsubst < .github/opencode/opencode.json > opencode.json
           echo "::endgroup::"
 
+      - name: Auto-PR on Clean Merge
+        id: merge-check
+        if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.prompt == '' || github.event.inputs.prompt == 'null')))
+        env:
+          GH_TOKEN: ${{ (steps.detect.outputs.use_pat == 'true' && secrets.PAT_TOKEN) || secrets.GITHUB_TOKEN }}
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_TEST_CHAT_ID || secrets.TG_CHAT_ID }}
+        run: |
+          CONFLICTS=$(git ls-files -u 2>/dev/null | wc -l)
+          if [ "$CONFLICTS" -gt 0 ]; then
+            echo "has_conflicts=true" >> "$GITHUB_OUTPUT"
+            echo "Merge has $CONFLICTS conflict files, agent will resolve."
+            exit 0
+          fi
+          echo "has_conflicts=false" >> "$GITHUB_OUTPUT"
+
+          AHEAD=$(git rev-list --count origin/main..HEAD)
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "skip_agent=true" >> "$GITHUB_OUTPUT"
+            echo "No new commits, nothing to do."
+            exit 0
+          fi
+
+          BRANCH="opencode/upstream-sync-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH"
+          git push origin "$BRANCH"
+          PR_URL=$(gh pr create \
+            --title "🔄 Sync upstream $(date +%Y-%m-%d)" \
+            --body "Automatic upstream sync. No conflicts detected." \
+            --base main \
+            --head "$BRANCH" \
+            --json url -q '.url')
+          echo "skip_agent=true" >> "$GITHUB_OUTPUT"
+          echo "PR created: $PR_URL"
+
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+            MSG="✅ <b>Upstream Sync PR Created</b>"$'\n'
+            MSG+="━━━━━━━━━━━━━━━━━━"$'\n'
+            MSG+="<b>PR:</b> <a href=\"$PR_URL\">$PR_URL</a>"$'\n'
+            MSG+="<b>Ahead by:</b> $AHEAD commits"
+            IFS=' ,' read -r -a CHAT_IDS <<< "$TG_CHAT_ID"
+            for ID in "${CHAT_IDS[@]}"; do
+              [ -z "$ID" ] && continue
+              PAYLOAD=$(jq -n --arg chat_id "$ID" --arg text "$MSG" '{chat_id: $chat_id, parse_mode: "HTML", disable_web_page_preview: true, text: $text}')
+              curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null
+            done
+          fi
+
       - name: Prepare Prompt
         id: prep
         env:
@@ -203,6 +251,7 @@ jobs:
 
       - name: Run opencode
         id: agent
+        if: steps.merge-check.outputs.skip_agent != 'true'
         uses: anomalyco/opencode/github@latest
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
