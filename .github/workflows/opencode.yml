@@ -153,6 +153,7 @@ jobs:
           BRANCH="opencode/upstream-sync-$(date +%Y%m%d%H%M%S)"
           git checkout -b "$BRANCH"
           git push origin "$BRANCH"
+          sleep 10
           PR_URL=$(gh pr create \
             --title "🔄 Sync upstream $(date +%Y-%m-%d)" \
             --body "Automatic upstream sync. No conflicts detected." \
