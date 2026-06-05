@@ -108,10 +108,26 @@ jobs:
           fi
 
           echo "::group::Sanitize & Ignore Rules"
+          CONFLICT_COUNT=$(git ls-files -u 2>/dev/null | wc -l)
           python3 .github/opencode/sanitize.py
-          
-          git add -A
-          git commit -m "chore: sanitize codebase" || echo "No changes to commit"
+
+          if [ "$CONFLICT_COUNT" -eq 0 ]; then
+            git add -A
+            git commit -m "chore: sanitize codebase" || echo "No changes to commit"
+          else
+            git ls-files -u 2>/dev/null | awk '{print $4}' | sort -u > .github/opencode/conflict_files.txt
+            {
+              echo "The following files have UNRESOLVED MERGE CONFLICTS. Conflict markers are at these exact lines:"
+              echo ""
+              while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                echo "=== $f ==="
+                grep -n '<<<<<<< HEAD\|=======\|>>>>>>> upstream/main' "$f" 2>/dev/null || echo "  (markers not found in working copy, check git diff)"
+                echo ""
+              done < .github/opencode/conflict_files.txt
+            } > .github/opencode/conflict_summary.txt
+            echo "Merge has $CONFLICT_COUNT conflict file(s), skipping commit. Conflict summary saved."
+          fi
           echo "::endgroup::"
 
           echo "::group::Preparing opencode.json"
@@ -138,7 +154,7 @@ jobs:
           CONFLICTS=$(git ls-files -u 2>/dev/null | wc -l)
           if [ "$CONFLICTS" -gt 0 ]; then
             echo "has_conflicts=true" >> "$GITHUB_OUTPUT"
-            echo "Merge has $CONFLICTS conflict files, agent will resolve."
+            echo "Merge has $CONFLICTS conflict file(s), agent will resolve."
             exit 0
           fi
           echo "has_conflicts=false" >> "$GITHUB_OUTPUT"
@@ -191,6 +207,12 @@ jobs:
               echo "1. Resolve any UNRESOLVED CONFLICTS."
               echo "2. Final audit against guidelines."
               echo ""
+              if [ -f .github/opencode/conflict_summary.txt ]; then
+                echo "========== CONFLICT DETAILS =========="
+                cat .github/opencode/conflict_summary.txt
+                echo "====================================="
+                echo ""
+              fi
               cat .github/opencode/guidelines.txt
             } > final_prompt.txt
           elif [[ "${{ github.event_name }}" == "issue_comment" || "${{ github.event_name }}" == "pull_request_review_comment" ]]; then
