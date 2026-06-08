@@ -1,11 +1,9 @@
-name: 🛠️ ToolChains Generator
+name: Mirror static toolchains to GitHub Release
 
 permissions:
   contents: write
 
 on:
-  schedule:
-    - cron: '0 0 * * 0' # Every Sunday at 00:00 UTC
   workflow_dispatch:
   workflow_call:
 

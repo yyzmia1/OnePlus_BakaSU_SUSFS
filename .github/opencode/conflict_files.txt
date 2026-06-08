@@ -1,5 +1,4 @@
 .github/actions/build-kernel/action.yml
-README.md
 configs/oos15/OP-ACE-2-5.10.209.json
 configs/oos15/OP-ACE-2-PRO-5.15.149.json
 configs/oos15/OP-ACE-2V-5.10.209.json
