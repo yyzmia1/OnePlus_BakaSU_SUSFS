@@ -102,6 +102,28 @@ jobs:
             git -c http.extraHeader="" fetch --no-tags upstream main
             git merge upstream/main --no-edit || echo "Merge conflicts detected (expected)"
             echo "::endgroup::"
+
+            echo "::group::Auto-resolve merge conflicts (deterministic)"
+            # The fork OWNS its CI and docs -> keep OURS so upstream can never clobber
+            # the ReSukiSU build logic (.github/actions/.../action.yml), workflows, or
+            # the rebranded README. Everything else (device configs, manifests, kernel
+            # sources) takes UPSTREAM -> that is the content we want to sync in. The
+            # sanitize step below then re-applies the deterministic fork transforms
+            # (uname -> OP-RESUKISU, AnyKernel3 URL, ...). This replaces the previous
+            # LLM-driven resolution, which unreliably did a blanket `checkout --ours`
+            # and silently dropped all upstream changes.
+            git ls-files -u 2>/dev/null | awk '{print $4}' | sort -u | while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              case "$f" in
+                .github/*|README.md|*.md|LICENSE|compatibility.md)
+                  git checkout --ours -- "$f" 2>/dev/null || true ;;
+                *)
+                  git checkout --theirs -- "$f" 2>/dev/null || git rm -f --quiet "$f" 2>/dev/null || true ;;
+              esac
+              git add -- "$f" 2>/dev/null || true
+            done
+            echo "Remaining unmerged after auto-resolve: $(git ls-files -u 2>/dev/null | awk '{print $4}' | sort -u | wc -l | tr -d ' ')"
+            echo "::endgroup::"
           fi
 
           echo "::group::Sanitize & Ignore Rules"
@@ -111,7 +133,7 @@ jobs:
 
           if [ "$CONFLICT_COUNT" -eq 0 ]; then
             git add -A
-            git commit -m "chore: sanitize codebase" || echo "No changes to commit"
+            git commit -m "chore: merge upstream/main + sanitize" || echo "No changes to commit"
           else
             # Write conflict scratch files OUTSIDE the work tree so the agent's
             # `git add -A` never commits them into the repo. Read back via $RUNNER_TEMP.
