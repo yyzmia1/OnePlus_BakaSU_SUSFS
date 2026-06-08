@@ -104,22 +104,25 @@ jobs:
             echo "::endgroup::"
 
             echo "::group::Auto-resolve merge conflicts (deterministic)"
-            # The fork OWNS its CI and docs -> keep OURS so upstream can never clobber
-            # the ReSukiSU build logic (.github/actions/.../action.yml), workflows, or
-            # the rebranded README. Everything else (device configs, manifests, kernel
-            # sources) takes UPSTREAM -> that is the content we want to sync in. The
-            # sanitize step below then re-applies the deterministic fork transforms
-            # (uname -> OP-RESUKISU, AnyKernel3 URL, ...). This replaces the previous
-            # LLM-driven resolution, which unreliably did a blanket `checkout --ours`
-            # and silently dropped all upstream changes.
+            # The fork OWNS its CI (.github/**) and top-level docs. Restore OUR version
+            # of them, discarding ANY upstream change whether it conflicted OR merged
+            # cleanly -- otherwise upstream silently rewrites fork workflows (e.g.
+            # renaming mirror-toolchains.yml / adding crons) or the rebranded README.
+            # `git checkout HEAD -- <path>` during a merge takes the pre-merge (ours)
+            # version and marks those paths resolved.
+            git checkout HEAD -- .github 2>/dev/null || true
+            for d in README.md compatibility.md LICENSE; do
+              git ls-files --error-unmatch "$d" >/dev/null 2>&1 && git checkout HEAD -- "$d" 2>/dev/null || true
+            done
+            # Every OTHER conflict (device configs, manifests, kernel sources) takes
+            # UPSTREAM -> that is the content we want to sync in. sanitize.py below then
+            # re-applies the deterministic fork transforms (uname -> OP-RESUKISU,
+            # AnyKernel3 URL, ...). This replaces the previous LLM-driven resolution,
+            # which unreliably did a blanket `checkout --ours` and dropped all upstream
+            # changes.
             git ls-files -u 2>/dev/null | awk '{print $4}' | sort -u | while IFS= read -r f; do
               [ -z "$f" ] && continue
-              case "$f" in
-                .github/*|README.md|*.md|LICENSE|compatibility.md)
-                  git checkout --ours -- "$f" 2>/dev/null || true ;;
-                *)
-                  git checkout --theirs -- "$f" 2>/dev/null || git rm -f --quiet "$f" 2>/dev/null || true ;;
-              esac
+              git checkout --theirs -- "$f" 2>/dev/null || git rm -f --quiet "$f" 2>/dev/null || true
               git add -- "$f" 2>/dev/null || true
             done
             echo "Remaining unmerged after auto-resolve: $(git ls-files -u 2>/dev/null | awk '{print $4}' | sort -u | wc -l | tr -d ' ')"
