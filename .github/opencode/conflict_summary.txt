@@ -18,11 +18,6 @@ The following files have UNRESOLVED MERGE CONFLICTS. Conflict markers are at the
 2076:          echo "============================================"
 2079:        echo "============================================"
 
-=== README.md ===
-7:<<<<<<< HEAD
-10:=======
-13:>>>>>>> upstream/main
-
 === configs/oos15/OP-ACE-2-5.10.209.json ===
 25:<<<<<<< HEAD
 27:=======
