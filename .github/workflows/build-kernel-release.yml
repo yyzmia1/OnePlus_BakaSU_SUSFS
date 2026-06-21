@@ -902,6 +902,9 @@ jobs:
               IFS='_' read -ra parts <<< "$rest"
               model="${parts[0]}"
               os_version="${parts[1]}"
+              if [[ "$os_version" =~ ^OOS[0-9]+$ ]]; then
+                os_version="Android ${os_version#OOS}"
+              fi
               kernel_version="${parts[2]}"
               ksu_type="${parts[3]}"
               ksu_ver="${parts[4]}"
