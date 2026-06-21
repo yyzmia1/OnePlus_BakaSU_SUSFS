@@ -1767,7 +1767,7 @@ runs:
           
           cp build.log "$DEBUG_ARTIFACTS_FOLDER/build.log"
           cp install.log "$DEBUG_ARTIFACTS_FOLDER/install.log"
-          rsync -av --exclude='build' "$COMMON_KERNEL_FOLDER/out/install/lib/modules"/*/ "$DEBUG_ARTIFACTS_FOLDER"
+          rsync -av --no-links --exclude='build' "$COMMON_KERNEL_FOLDER/out/install/lib/modules"/*/ "$DEBUG_ARTIFACTS_FOLDER"
           cp "$COMMON_KERNEL_FOLDER/out/vmlinux" "$DEBUG_ARTIFACTS_FOLDER/vmlinux"
           cp "$COMMON_KERNEL_FOLDER/out/Module.symvers" "$DEBUG_ARTIFACTS_FOLDER/Module.symvers"
           cp "$COMMON_KERNEL_FOLDER/out/System.map" "$DEBUG_ARTIFACTS_FOLDER/System.map"
