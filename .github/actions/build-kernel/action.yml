@@ -1845,7 +1845,7 @@ runs:
         echo "Perform LTO cache eviction!"
         if [ -d "$LDCACHE_DIR" ]; then
           # Delete LTO cache files modified more than 180 minutes (3 hours) ago
-          find "$LDCACHE_DIR" -type f -mmin +180 -delete
+          find "$LDCACHE_DIR" -type f -amin +180 -delete
           find "$LDCACHE_DIR" -type d -empty -delete
         fi
         
