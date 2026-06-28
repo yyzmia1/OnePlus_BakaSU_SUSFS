@@ -1024,7 +1024,7 @@ jobs:
           
           if [ ${#device_info[@]} -gt 0 ]; then
             first_entry=$(printf '%s\n' "${!device_info[@]}" | sort | head -n1)
-            IFS='|' read -r _ _ _ _ _ ksu_ver_global _ <<< "${device_info["$first_entry"]}"
+            IFS='|' read -r _ _ _ _ ksu_ver_global _ _ <<< "${device_info["$first_entry"]}"
           else
             echo "::error::No device info found!" >&2
             exit 1
