@@ -130,6 +130,7 @@ runs:
         susfs="$OP_SUSFS"
         bbg="$OP_BBG"
         bbr="$OP_BBR"
+        bbr3="$OP_BBR3"
         ttl="$OP_TTL"
         ip_set="$OP_IP_SET"
         rust_build="$OP_RUST_BUILD"
@@ -222,6 +223,12 @@ runs:
           errors+=("Input 'bbr' cannot be empty")
         elif [[ "$bbr" != "true" && "$bbr" != "false" ]]; then
           errors+=("Input 'bbr' contains invalid characters. Allowed: 'true' or 'false'. Got: '$bbr'")
+        fi
+        
+        if [[ -z "$bbr3" ]]; then
+          errors+=("Input 'bbr3' cannot be empty")
+        elif [[ "$bbr3" != "true" && "$bbr3" != "false" ]]; then
+          errors+=("Input 'bbr3' contains invalid characters. Allowed: 'true' or 'false'. Got: '$bbr3'")
         fi
         
         if [[ -z "$ttl" ]]; then
@@ -1446,6 +1453,29 @@ runs:
         CONFIG_TCP_CONG_BBR=y
         EOF
 
+    - name: Apply BBRv3
+      if: ${{ env.OP_BBR3 == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "::group::Apply BBRv3 patches"
+        cd "$COMMON_KERNEL_FOLDER"
+        cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF
+        CONFIG_TCP_CONG_ADVANCED=y
+        CONFIG_TCP_CONG_BBR3=y
+        EOF
+        patch -p1 < "$KERNEL_PATCHES_FOLDER/common/bbrv3/0001-net-tcp-backport-BBRv3-to-$ANDROID_VER-$KERNEL_VER.patch"
+        
+        if [ "${{ env.ANDROID_VER }}" = "android12" ] && [ "${{ env.KERNEL_VER }}" = "5.10" ]; then
+          if ! grep -qF 'int proc_dou8vec_minmax(' ./include/linux/sysctl.h; then
+            patch -p1 < "$KERNEL_PATCHES_FOLDER/common/bbrv3/sysctl_add_proc_dou8vec_minmax.patch"
+            patch -p1 < "$KERNEL_PATCHES_FOLDER/common/bbrv3/sysctl_fix_data-races_in_proc_dou8vec_minmax.patch"
+          fi
+        fi
+        
+        echo "✅ BBRv3 patches applied"
+        echo "::endgroup::"
+
     - name: Enable Important Net Schedulers (qdisc)
       shell: bash
       run: |
@@ -2062,6 +2092,7 @@ runs:
           echo ""
           echo "=== OnePlus Features ==="
           echo "BBR: ${{ env.OP_BBR }}"
+          echo "BBRv3: ${{ env.OP_BBR3 }}"
           echo "BBG: ${{ env.OP_BBG }}"
           echo "HMBIRD SCX: ${{ env.OP_HMBIRD }}"
           echo "TTL: ${{ env.OP_TTL }}"
@@ -2127,6 +2158,7 @@ runs:
           echo "| Feature | Status |"
           echo "|---------|--------|"
           echo "| **BBR** | ${{ env.OP_BBR }} |"
+          echo "| **BBRv3** | ${{ env.OP_BBR3 }} |"
           echo "| **BBG** | ${{ env.OP_BBG }} |"
           echo "| **HMBIRD SCX** | ${{ env.OP_HMBIRD }} |"
           echo "| **TTL** | ${{ env.OP_TTL }} |"

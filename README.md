@@ -73,6 +73,8 @@ Flashing this kernel will not void your warranty, but there is always a risk of 
 - 🛡️ **BBG**: LSM-based Baseband Guard security to protect critical device partitions
 - 🛠️ **HMBIRD SCX**: Scheduler extensions for SM8750/MT6991 devices
 - 🖧 **BBRv1**: Improved TCP congestion control
+- 🖧 **BBRv3**: Improved TCP congestion control
+- 🚦 **CAKE and PIE qdisc Support**: Better Net Schedulers
 - ✅ **LTO**: Link Time Optimisation enabled
 - 🚀 **Optimisation patches**: Memory, I/O, CPU scheduler, network and other general tunings
 - 🌐 **TTL Target Support**: Network packet manipulation
