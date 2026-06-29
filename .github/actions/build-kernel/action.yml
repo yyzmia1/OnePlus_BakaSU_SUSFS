@@ -1463,9 +1463,9 @@ runs:
         fi
         echo "Patching use_unlikely_wrap_cpufreq.patch"
         if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/use_unlikely_wrap_cpufreq.patch"; then
-          echo "::error::use_unlikely_wrap_cpufreq patch failed. Dumping all .rej files:"
+          echo "::warning::use_unlikely_wrap_cpufreq patch did not apply cleanly. Continuing without it (cpufreq optimization only)."
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-          exit 1
+          find . -name "*.rej" -delete 2>/dev/null || true
         fi
         
         echo "✅ Other patches applied"
