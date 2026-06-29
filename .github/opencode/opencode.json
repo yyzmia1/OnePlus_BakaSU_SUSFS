@@ -9,7 +9,8 @@
       },
       "models": {
         "${OPENAI_MODEL}": {
-          "name": "Custom Model"
+          "name": "Custom Model",
+          "reasoning": false
         }
       }
     }
