@@ -68,10 +68,11 @@ jobs:
     env:
       # Quiet opencode's internal INFO/pino spam (the `INFO (#NNNN): created/
       # stream/tracking …` lines) while keeping the agent's tool/shell
-      # transcript and real warnings/errors. opencode's CLI uses yargs .env(),
-      # so LOG_LEVEL maps to the --log-level flag. Undocumented but effective;
-      # job-level env propagates into the action's `opencode github run`.
-      LOG_LEVEL: ERROR
+      # transcript and real errors. opencode's `--log-level` flag just writes
+      # process.env.OPENCODE_LOG_LEVEL, which the logger reads back — so setting
+      # this env directly is equivalent to passing the flag. Job-level env
+      # propagates into the action's `opencode github run`.
+      OPENCODE_LOG_LEVEL: ERROR
     permissions:
       id-token: write
       contents: write
