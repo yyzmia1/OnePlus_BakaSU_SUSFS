@@ -5,7 +5,7 @@
   "manifest": "oneplus_nord_ce4_lite_5g_6.1.118_w.xml",
   "android_version": "android14",
   "kernel_version": "6.1",
-  "os_version": "A16",
+  "os_version": "OOS16",
   "lto": "thin",
   "zyc_compiler": "",
   "c_compiler": "kernel_platform/prebuilts/clang/host/linux-x86/clang-r487747c/bin",
