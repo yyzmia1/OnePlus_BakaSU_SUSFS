@@ -122,9 +122,8 @@ jobs:
             # support, cache fixes, ...) in areas the fork didn't touch flow in for free.
             #
             # Only directly CONFLICTING hunks are resolved here, split by ownership:
-            #   * Fork-owned CI/docs (.github/**, README, ...) keep OURS -- the fork is a
-            #     heavy rewrite (ReSukiSU branding, ccache job, model-link table, DWC3, KSUN
-            #     removal, t.me links); a blind --theirs would drop those.
+            #   * Fork-owned CI/docs (.github/**, README, ...) take UPSTREAM;
+            #     sanitize.py below re-applies fork-specific transforms.
             #   * Everything else (device configs, manifests, kernel sources) takes
             #     UPSTREAM; sanitize.py below re-applies the deterministic fork transforms
             #     (uname -> OP-RESUKISU, AnyKernel3 URL, ...).
@@ -132,20 +131,11 @@ jobs:
               [ -z "$f" ] && continue
               case "$f" in
                 .github/*|README.md|compatibility.md|LICENSE)
-                  # Fork-owned CI/docs: for directly COLLIDING hunks keep OURS so fork CI
-                  # stays working. Non-conflicting upstream edits to these files were
-                  # ALREADY merged cleanly by `git merge` above, so upstream CI improvements
-                  # in areas the fork didn't touch still flow in -- only hunks that overlap
-                  # a fork customization fall back to fork.
-                  #
-                  # Resolving HERE (rather than leaving the conflict for the opencode agent)
-                  # is deliberate: it lets THIS workflow commit a real 2-parent merge commit
-                  # below. The agent runs in a tool that flattens its commit to a single
-                  # parent, which drops the upstream ancestry -- main's merge-base would
-                  # never advance and every sync would re-merge the same commits. Keeping
-                  # the merge in the workflow makes the sync PR contain the upstream commits
-                  # + one merge commit, and advances merge-base.
-                  git checkout --ours -- "$f" 2>/dev/null || true
+                  # Fork-owned CI/docs: take UPSTREAM for ALL conflicting hunks.
+                  # sanitize.py below re-applies deterministic fork transforms
+                  # (URLs, uname). This ensures upstream CI improvements (ccache
+                  # fixes, build optimizations, ...) always flow in.
+                  git checkout --theirs -- "$f" 2>/dev/null || true
                   git add -- "$f" 2>/dev/null || true
                   ;;
                 *)
