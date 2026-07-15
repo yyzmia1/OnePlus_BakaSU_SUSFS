@@ -122,11 +122,11 @@ jobs:
             # support, cache fixes, ...) in areas the fork didn't touch flow in for free.
             #
             # Only directly CONFLICTING hunks are resolved here, split by ownership:
-            #   * Fork-owned CI/docs (.github/**, README, ...) are LEFT CONFLICTED
-            #     so the opencode agent can intelligently merge upstream CI
-            #     improvements while preserving fork-specific features (ReSukiSU
-            #     branding, ccache download-once, model-link table, OOS naming,
-            #     DWC3, KSUN removal, t.me links, etc.) per guidelines.txt.
+            #   * Fork-owned CI/docs (.github/**, README, ...) keep OURS. The fork
+            #     is a heavy rewrite (ReSukiSU branding, ccache download-once,
+            #     model-link table, DWC3, KSUN removal, t.me links). Resolving
+            #     HERE lets the workflow commit a real 2-parent merge commit so
+            #     upstream ancestry is preserved and merge-base advances.
             #   * Everything else (device configs, manifests, kernel sources) takes
             #     UPSTREAM; sanitize.py below re-applies the deterministic fork
             #     transforms (uname -> OP-RESUKISU, AnyKernel3 URL, oos* naming).
@@ -134,13 +134,10 @@ jobs:
               [ -z "$f" ] && continue
               case "$f" in
                 .github/*|README.md|compatibility.md|LICENSE)
-                  # CI/docs: skip auto-resolve. Leave conflicts for the agent
-                  # so it can merge upstream improvements while keeping fork
-                  # customizations per guidelines.txt.
+                  git checkout --ours -- "$f" 2>/dev/null || true
+                  git add -- "$f" 2>/dev/null || true
                   ;;
                 *)
-                  # Device configs, manifests, kernel sources: take UPSTREAM;
-                  # sanitize.py below re-applies deterministic fork transforms.
                   git checkout --theirs -- "$f" 2>/dev/null || git rm -f --quiet "$f" 2>/dev/null || true
                   git add -- "$f" 2>/dev/null || true
                   ;;
