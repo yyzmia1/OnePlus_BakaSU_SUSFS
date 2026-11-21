@@ -1,6 +1,6 @@
 <div align="center">
 
-# OnePlus 13 ReSukiSU + SUSFS Kernel
+# OnePlus 13 BakaSU + SUSFS Kernel
 
 **My personal kernel build repository for the OnePlus 13**
 
@@ -12,7 +12,7 @@ English · [简体中文](README_CN.md)
 
 This is my own streamlined build repository for the **OnePlus 13**. It is not a general-purpose multi-device kernel project: the extra device configurations and manifests from upstream have intentionally been removed so that the repository has one clear target and one reproducible build profile.
 
-The build keeps the parts I use—ReSukiSU, SUSFS, networking features, and selected optimizations—while disabling optional components that are unnecessary for my device or usage. The repository remains public for transparency and reproducibility, but every build should be treated as a personal/custom kernel rather than an official OnePlus, ReSukiSU, or WildKernels release.
+The build keeps the parts I use—BakaSU, SUSFS, networking features, and selected optimizations—while disabling optional components that are unnecessary for my device or usage. The repository remains public for transparency and reproducibility, but every build should be treated as a personal/custom kernel rather than an official OnePlus, BakaSU, or WildKernels release.
 
 ## Supported target
 
@@ -24,7 +24,7 @@ The build keeps the parts I use—ReSukiSU, SUSFS, networking features, and sele
 | Source platform | Android 15 |
 | Kernel branch | Linux 6.6 |
 | Manifest | `oneplus_13_w.xml` |
-| Default root solution | ReSukiSU |
+| Default root solution | BakaSU |
 | Filesystem integration | SUSFS |
 
 Only `configs/oos16/OP13.json` is maintained. Other OnePlus, Oppo, Realme, Nord, Ace, Pad, and Open devices are outside the scope of this fork.
@@ -33,7 +33,7 @@ Only `configs/oos16/OP13.json` is maintained. Other OnePlus, Oppo, Realme, Nord,
 
 Enabled in the current OnePlus 13 configuration:
 
-- ReSukiSU and SUSFS integration
+- BakaSU and SUSFS integration
 - ThinLTO and the repository's optimization patch set
 - BBR v1 and BBR v3 networking support
 - TTL target support
@@ -55,7 +55,7 @@ These choices are deliberate: this fork favors the features I actually use and a
 1. Fork this repository or use it from your own GitHub account.
 2. Open **Actions → Build and Release OnePlus 13 Kernel**.
 3. Select **Run workflow**.
-4. Keep `ReSukiSU` as the KSU type unless you specifically need standard KernelSU.
+4. Keep `BakaSU` as the KSU type unless you specifically need standard KernelSU.
 5. Enable the release option if you want the completed package published under GitHub Releases.
 6. Download the generated AnyKernel3 ZIP from the workflow artifacts or release page.
 

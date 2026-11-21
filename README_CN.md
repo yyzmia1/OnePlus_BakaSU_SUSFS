@@ -1,6 +1,6 @@
 <div align="center">
 
-# 一加 13 ReSukiSU + SUSFS 内核
+# 一加 13 BakaSU + SUSFS 内核
 
 **我自己使用的一加 13 内核构建仓库**
 
@@ -12,7 +12,7 @@
 
 这是我为 **一加 13** 精简和维护的个人内核构建仓库，不再定位为通用的多机型构建项目。上游仓库中其他设备的配置与清单已被有意移除，使整个仓库只有一个明确目标和一套可复现的构建配置。
 
-当前构建保留了我需要的 ReSukiSU、SUSFS、网络功能与部分优化，同时关闭了对我的设备或使用方式没有必要的可选组件。仓库公开是为了让构建过程透明、可复现，但这里产生的内核属于个人自定义构建，并非 OnePlus、ReSukiSU 或 WildKernels 的官方版本。
+当前构建保留了我需要的 BakaSU、SUSFS、网络功能与部分优化，同时关闭了对我的设备或使用方式没有必要的可选组件。仓库公开是为了让构建过程透明、可复现，但这里产生的内核属于个人自定义构建，并非 OnePlus、BakaSU 或 WildKernels 的官方版本。
 
 ## 支持目标
 
@@ -24,7 +24,7 @@
 | 源码平台 | Android 15 |
 | 内核分支 | Linux 6.6 |
 | Manifest | `oneplus_13_w.xml` |
-| 默认 Root 方案 | ReSukiSU |
+| 默认 Root 方案 | BakaSU |
 | 文件系统集成 | SUSFS |
 
 本仓库只维护 `configs/oos16/OP13.json`。其他一加、OPPO、Realme、Nord、Ace、Pad 和 Open 设备均不在这个分支的支持范围内。
@@ -33,7 +33,7 @@
 
 当前一加 13 配置中启用的功能：
 
-- ReSukiSU 与 SUSFS 集成
+- BakaSU 与 SUSFS 集成
 - ThinLTO 与仓库中的优化补丁集
 - BBR v1 与 BBR v3 网络支持
 - TTL Target 支持
@@ -55,7 +55,7 @@
 1. Fork 本仓库，或直接在你自己的 GitHub 仓库中使用。
 2. 打开 **Actions → Build and Release OnePlus 13 Kernel**。
 3. 点击 **Run workflow**。
-4. 除非明确需要标准 KernelSU，否则保持 KSU 类型为 `ReSukiSU`。
+4. 除非明确需要标准 KernelSU，否则保持 KSU 类型为 `BakaSU`。
 5. 如果希望构建完成后自动发布到 Releases，请打开 release 选项。
 6. 构建结束后，从工作流 Artifacts 或 Releases 页面下载 AnyKernel3 ZIP。
 
