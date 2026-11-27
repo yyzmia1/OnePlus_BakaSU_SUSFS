@@ -69,6 +69,7 @@ Key engineering modifications maintained in this fork relative to upstream `OneP
   2. Updated `susfs_security_compute_av_user()` to map source/target contexts and `tclass` by symbol name against `backup_sepolicy->policydb` with baseline `avd->seqno = 1`;
   3. Filtered non-baseline types by name in `security_get_user_sids()` and extended `handle_selinux_setprocattr()` in `security/selinux/hooks.c` to cover all 5 `procattr` attributes;
   4. **Invariant**: `security_context_to_sid()` (invoked internally via `security_secctx_to_secid()`) remains intentionally ungated so `transive_to_domain("u:r:ksu:s0", cred)` succeeds prior to `commit_creds()`, keeping manager `RootService` and authorized `su` transitions intact.
+- **Runtime Requirement**: BakaSU frees `backup_sepolicy` on `boot-completed` if `selinux_hide` was disabled during boot (subsequent runtime enable returns `-EAGAIN`). After enabling `selinux_hide` in the manager (or via `ksud feature set selinux_hide 1 && ksud feature save`), **reboot once** so `backup_sepolicy` is retained on startup.
 
 ## Building with GitHub Actions
 
