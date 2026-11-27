@@ -63,12 +63,15 @@
 
 ### CHG-03 技术细节说明
 
+- **覆盖的两类典型 SELinux 暴露面**：
+  1. **非原厂 SELinux 上下文与类型暴露**：隐藏 `u:r:ksu:s0`、`u:object_r:ksu_file:s0`、`u:r:lsposed_file:s0`、`u:object_r:lsposed_file:s0` 等非原厂安全上下文，覆盖 `selinuxfs`（`context`/`create`/`relabel`/`user`/`member`/`validatetrans`）、`setxattr` 与 `setprocattr` 等查询通道；
+  2. **SELinux Policy 访问规则与序列号异常**：隐藏 LSPosed / Root 框架注入的规则（如 `system_server execmem`、`untrusted_app -> ksu_file / lsposed_file read`），并将 `/sys/fs/selinux/access` 回填的策略序列号固定为原厂基线值 `avd.seqno = 1`，避免与 `status` 页产生序列号失配。
 - **根因**：集成 `SUSFS v2.4.0` 后，`susfs_compat.mk` 会启用 `KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE`，改用 SUSFS 哈希表（`SUS_TYPE_HLIST` / `SUS_AVD_ALLOWED_HLIST`）拦截查询。当用户态框架（如 LSPosed）在 `post-fs-data` 阶段通过 `/sys/fs/selinux/load` 重载二进制策略时，新注入类型与规则不会进入该哈希表，且符号表重排会导致早期登记的类型 ID 失配。
-- **实现**：
-  1. 在 `security/selinux/ss/services.c` 中新增只读基线校验函数 `susfs_check_context_in_backup()`（不写入 `backup_sepolicy->sidtab`，无锁竞争与内存增长），接管 `susfs_security_context_to_sid()` 与 `security_context_str_to_sid()`；
-  2. 在 `susfs_security_compute_av_user()` 中将源/目标上下文及 `tclass` 按符号名映射至 `backup_sepolicy->policydb` 计算访问向量，并固定返回基线序列号 `avd->seqno = 1`；
-  3. 在 `security_get_user_sids()` 中按符号名过滤非原厂类型，并在 `security/selinux/hooks.c` 的 `handle_selinux_setprocattr()` 中将校验范围扩展至全部 5 类 `procattr` 属性；
-  4. **权限隔离不变式**：保持内核内部入口 `security_context_to_sid()`（供 `security_secctx_to_secid()` 调用）不被拦截，确保应用提权路径 `transive_to_domain("u:r:ksu:s0", cred)` 在 `commit_creds()` 之前正常完成域切换，不影响管理器 `RootService` 与授权应用 `su`。
+- **具体实现**：
+  1. **上下文只读基线校验**（`security/selinux/ss/services.c`）：新增 `susfs_check_context_in_backup()`，以只读方式在开机早期备份的原厂策略 `backup_sepolicy->policydb` 上校验上下文合法性（不写入 `backup_sepolicy->sidtab`，无锁竞争与内存增长），接管 `susfs_security_context_to_sid()` 与 `security_context_str_to_sid()`；
+  2. **访问向量按符号名基线重算**（`security/selinux/ss/services.c`）：在 `susfs_security_compute_av_user()` 中将源/目标上下文及 `tclass` 按符号名映射至 `backup_sepolicy->policydb` 计算访问向量，并固定返回基线序列号 `avd->seqno = 1`；
+  3. **补齐剩余枚举与属性通道**（`services.c` & `hooks.c`）：在 `security_get_user_sids()` 中按类型名称过滤非原厂类型，并在 `security/selinux/hooks.c` 的 `handle_selinux_setprocattr()` 中将校验范围从仅限 `"current"` 扩展至全部 5 类 `procattr` 属性；
+  4. **权限隔离不变式**：保持内核内部入口 `security_context_to_sid()`（供 `security_secctx_to_secid()` 调用）不被拦截，确保应用提权路径 `transive_to_domain("u:r:ksu:s0", cred)` 在 `commit_creds()` 之前正常完成域切换，不影响管理器 `RootService` 与授权应用 `su`；
   5. **常驻基线策略**：将 `selinux_hide_susfs.c` 中 `ksu_selinux_hide_backup_in_use()` 固定返回 `true`，使 `backup_sepolicy` 在 `boot-completed` 后始终常驻内存，支持开机后随时动态开关 `selinux_hide` 即时生效，不再因策略被回收而返回 `-EAGAIN` 或要求二次重启。
 
 ## 使用 GitHub Actions 构建

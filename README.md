@@ -63,13 +63,16 @@ Key engineering modifications maintained in this fork relative to upstream `OneP
 
 ### CHG-03 Technical Design
 
+- **Targeted SELinux Exposure Vectors**:
+  1. **Non-stock SELinux context & type exposure**: Masks custom contexts such as `u:r:ksu:s0`, `u:object_r:ksu_file:s0`, `u:r:lsposed_file:s0`, and `u:object_r:lsposed_file:s0` across `selinuxfs` (`context`/`create`/`relabel`/`user`/`member`/`validatetrans`), `setxattr`, and `setprocattr` query paths;
+  2. **SELinux policy AV rule & sequence anomalies**: Masks rules injected by Root/LSPosed frameworks (e.g., `system_server execmem`, `untrusted_app -> ksu_file / lsposed_file read`) and pins `/sys/fs/selinux/access` to baseline `avd.seqno = 1` to stay consistent with the spoofed `status` page.
 - **Root Cause**: With `SUSFS v2.4.0` integrated, `susfs_compat.mk` defines `KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE`, delegating query filtering to SUSFS hash tables (`SUS_TYPE_HLIST` / `SUS_AVD_ALLOWED_HLIST`). When userspace frameworks (e.g., LSPosed) reload binary policy via `/sys/fs/selinux/load` during `post-fs-data`, newly injected types/rules bypass KSU's kernel `sepolicy.c` hooks, and policy symbol re-indexing invalidates earlier numeric `type->value` entries.
 - **Implementation**:
-  1. Added a read-only baseline validator `susfs_check_context_in_backup()` in `security/selinux/ss/services.c` (never mutating `backup_sepolicy->sidtab`) gating `susfs_security_context_to_sid()` and `security_context_str_to_sid()` for unprivileged app UIDs (`>= 10000`, non-`ksu` domain, `ksu_selinux_hide_running == true`);
-  2. Updated `susfs_security_compute_av_user()` to map source/target contexts and `tclass` by symbol name against `backup_sepolicy->policydb` with baseline `avd->seqno = 1`;
-  3. Filtered non-baseline types by name in `security_get_user_sids()` and extended `handle_selinux_setprocattr()` in `security/selinux/hooks.c` to cover all 5 `procattr` attributes;
-  4. **Invariant**: `security_context_to_sid()` (invoked internally via `security_secctx_to_secid()`) remains intentionally ungated so `transive_to_domain("u:r:ksu:s0", cred)` succeeds prior to `commit_creds()`, keeping manager `RootService` and authorized `su` transitions intact.
-  5. **Resident Baseline Policy**: Patched `ksu_selinux_hide_backup_in_use()` in `selinux_hide_susfs.c` to always return `true`, keeping `backup_sepolicy` resident past `boot-completed` so `selinux_hide` can be toggled dynamically at runtime without hitting `-EAGAIN` or requiring a second reboot.
+  1. **Read-only baseline context validation** (`security/selinux/ss/services.c`): Added `susfs_check_context_in_backup()` (never mutating `backup_sepolicy->sidtab`) gating `susfs_security_context_to_sid()` and `security_context_str_to_sid()` for unprivileged app UIDs (`>= 10000`, non-`ksu` domain, `ksu_selinux_hide_running == true`);
+  2. **Symbol-mapped baseline AV computation** (`security/selinux/ss/services.c`): Updated `susfs_security_compute_av_user()` to resolve source/target contexts and `tclass` by symbol name against `backup_sepolicy->policydb` with baseline `avd->seqno = 1`;
+  3. **Complete enumeration & procattr coverage** (`services.c` & `hooks.c`): Filtered non-baseline types by name in `security_get_user_sids()` and extended `handle_selinux_setprocattr()` in `security/selinux/hooks.c` from `"current"` only to all 5 `procattr` attributes;
+  4. **Privilege-transition invariant**: `security_context_to_sid()` (invoked internally via `security_secctx_to_secid()`) remains intentionally ungated so `transive_to_domain("u:r:ksu:s0", cred)` succeeds prior to `commit_creds()`, keeping manager `RootService` and authorized `su` transitions intact;
+  5. **Resident baseline policy**: Patched `ksu_selinux_hide_backup_in_use()` in `selinux_hide_susfs.c` to always return `true`, keeping `backup_sepolicy` resident past `boot-completed` so `selinux_hide` can be toggled dynamically at runtime without hitting `-EAGAIN` or requiring a second reboot.
 
 ## Building with GitHub Actions
 
