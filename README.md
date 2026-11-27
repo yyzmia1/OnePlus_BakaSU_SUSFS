@@ -50,6 +50,26 @@ Intentionally disabled in this profile:
 
 These choices are deliberate: this fork favors the features I actually use and avoids optional components that add unwanted behavior, overhead, heat, or maintenance for my OnePlus 13 setup.
 
+## Engineering Changelog
+
+Key engineering modifications maintained in this fork relative to upstream `OnePlus_ReSukiSU_SUSFS`:
+
+| ID | Target Path | Category | Summary |
+| --- | --- | --- | --- |
+| **CHG-01** | `.github/actions/build-kernel/action.yml` | CI Reliability | Added a 3-tier fallback (`aria2c` → `curl` → `git clone`) when fetching `susfs4ksu` from GitLab to prevent Cloudflare/rate-limit build aborts. |
+| **CHG-02** | `.github/workflows/build-kernel-release.yml` | Toolchain ABI | Pinned GitHub Actions runners to `ubuntu-24.04` (preserving `libxml2.so.2` required by prebuilt AOSP `ld.lld`) and replaced obsolete `liblz4-tool` with `lz4`. |
+| **CHG-03** | `.github/actions/build-kernel/action.yml`<br>(patches `security/selinux/ss/services.c`, `security/selinux/hooks.c` at build time) | SELinux Consistency | Enforced read-only `backup_sepolicy` validation and AV computation across userspace SELinux query paths under `ReSukiSU` + `SUSFS v2.4.0+`, while preserving kernel-internal domain transitions. |
+| **CHG-04** | `.github/actions/build-kernel/action.yml` | Artifact Metadata | Rewrites `kernel.string` in `AnyKernel3/anykernel.sh` during packaging so flashers clearly identify builds from this repository. |
+
+### CHG-03 Technical Design
+
+- **Root Cause**: With `SUSFS v2.4.0` integrated, `susfs_compat.mk` defines `KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE`, delegating query filtering to SUSFS hash tables (`SUS_TYPE_HLIST` / `SUS_AVD_ALLOWED_HLIST`). When userspace frameworks (e.g., LSPosed) reload binary policy via `/sys/fs/selinux/load` during `post-fs-data`, newly injected types/rules bypass KSU's kernel `sepolicy.c` hooks, and policy symbol re-indexing invalidates earlier numeric `type->value` entries.
+- **Implementation**:
+  1. Added a read-only baseline validator `susfs_check_context_in_backup()` in `security/selinux/ss/services.c` (never mutating `backup_sepolicy->sidtab`) gating `susfs_security_context_to_sid()` and `security_context_str_to_sid()` for unprivileged app UIDs (`>= 10000`, non-`ksu` domain, `ksu_selinux_hide_running == true`);
+  2. Updated `susfs_security_compute_av_user()` to map source/target contexts and `tclass` by symbol name against `backup_sepolicy->policydb` with baseline `avd->seqno = 1`;
+  3. Filtered non-baseline types by name in `security_get_user_sids()` and extended `handle_selinux_setprocattr()` in `security/selinux/hooks.c` to cover all 5 `procattr` attributes;
+  4. **Invariant**: `security_context_to_sid()` (invoked internally via `security_secctx_to_secid()`) remains intentionally ungated so `transive_to_domain("u:r:ksu:s0", cred)` succeeds prior to `commit_creds()`, keeping manager `RootService` and authorized `su` transitions intact.
+
 ## Building with GitHub Actions
 
 1. Fork this repository or use it from your own GitHub account.

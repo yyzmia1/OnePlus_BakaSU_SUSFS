@@ -50,6 +50,26 @@
 
 这些并非遗漏，而是我自己的取舍：只保留实际使用的能力，并避免在一加 13 上引入不需要的行为、额外开销、发热或维护成本。
 
+## 定制变更说明（Engineering Changelog）
+
+相对于上游 `OnePlus_ReSukiSU_SUSFS` 构建模板，本仓库引入以下工程化变更：
+
+| 编号 | 涉及路径 | 变更类别 | 核心内容 |
+| --- | --- | --- | --- |
+| **CHG-01** | `.github/actions/build-kernel/action.yml` | CI 可靠性 | SUSFS 源码拉取增加 `aria2c` → `curl` → `git clone` 三级降级回退，避免 GitLab/Cloudflare 并发限流中断构建 |
+| **CHG-02** | `.github/workflows/build-kernel-release.yml` | 工具链兼容 | 将 Runner 显式锁定为 `ubuntu-24.04`（确保 AOSP 预编译 `ld.lld` 所需的 `libxml2.so.2` 可用），并将废弃包 `liblz4-tool` 替换为 `lz4` |
+| **CHG-03** | `.github/actions/build-kernel/action.yml`<br>（构建期修补 `security/selinux/ss/services.c`、`security/selinux/hooks.c`） | SELinux 策略一致性 | 在 `ReSukiSU` + `SUSFS v2.4.0+` 组合下，强制用户态 SELinux 查询统一基于开机原厂策略备份 `backup_sepolicy` 执行校验与访问向量计算，同时保持内核内部域切换入口无损放行 |
+| **CHG-04** | `.github/actions/build-kernel/action.yml` | 产物元数据 | 打包阶段自动覆写 `AnyKernel3/anykernel.sh` 中的 `kernel.string`，使刷机工具明确识别当前仓库构建产物 |
+
+### CHG-03 技术细节说明
+
+- **根因**：集成 `SUSFS v2.4.0` 后，`susfs_compat.mk` 会启用 `KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE`，改用 SUSFS 哈希表（`SUS_TYPE_HLIST` / `SUS_AVD_ALLOWED_HLIST`）拦截查询。当用户态框架（如 LSPosed）在 `post-fs-data` 阶段通过 `/sys/fs/selinux/load` 重载二进制策略时，新注入类型与规则不会进入该哈希表，且符号表重排会导致早期登记的类型 ID 失配。
+- **实现**：
+  1. 在 `security/selinux/ss/services.c` 中新增只读基线校验函数 `susfs_check_context_in_backup()`（不写入 `backup_sepolicy->sidtab`，无锁竞争与内存增长），接管 `susfs_security_context_to_sid()` 与 `security_context_str_to_sid()`；
+  2. 在 `susfs_security_compute_av_user()` 中将源/目标上下文及 `tclass` 按符号名映射至 `backup_sepolicy->policydb` 计算访问向量，并固定返回基线序列号 `avd->seqno = 1`；
+  3. 在 `security_get_user_sids()` 中按符号名过滤非原厂类型，并在 `security/selinux/hooks.c` 的 `handle_selinux_setprocattr()` 中将校验范围扩展至全部 5 类 `procattr` 属性；
+  4. **权限隔离不变式**：保持内核内部入口 `security_context_to_sid()`（供 `security_secctx_to_secid()` 调用）不被拦截，确保应用提权路径 `transive_to_domain("u:r:ksu:s0", cred)` 在 `commit_creds()` 之前正常完成域切换，不影响管理器 `RootService` 与授权应用 `su`。
+
 ## 使用 GitHub Actions 构建
 
 1. Fork 本仓库，或直接在你自己的 GitHub 仓库中使用。
