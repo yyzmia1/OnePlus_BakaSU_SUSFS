@@ -91,7 +91,7 @@ Key engineering modifications maintained in this fork relative to upstream `OneP
 | **Metamodule** | Hybrid Mount | `overlay` default mode with `ext4` backend |
 | **Zygisk** | Zygisk Next | Anonymous memory mode with strict unmount enforcement (do not stack with KSU `kernel_umount`) |
 | **Hook Framework** | LSPosed (Zygisk) | Keep module scopes minimal (never scope detectors); pair with **FuseFixer** (scoped only to `Media Storage`) to block zero-width `/sdcard/Android/data` probes |
-| **App Hiding** | HMA-OSS (Zygisk) | Blacklist mode covering root managers, all Xposed modules, and detectors; disable *Spoof install source* and *Do not block suspicious Activity launches* |
+| **App Hiding** | HMA-OSS (Zygisk) + `fgetpriority` | Blacklist mode covering root managers, all Xposed modules, and detectors; disable *Spoof install source* and *Do not block suspicious Activity launches*; pair with the `fgetpriority` companion module to eliminate HMA side-channel detection |
 | **Key Attestation** | Oh My Keymint | `injector` backend with `mask_strongbox_feature = true` and a valid unrevoked RKP keybox; **disable PIF fingerprint spoofing** (keep stock device props for Play Integrity Strong) |
 
 ## Building with GitHub Actions

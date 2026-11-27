@@ -91,7 +91,7 @@
 | **元模块（挂载）** | Hybrid Mount | `overlay` 默认模式 + `ext4` 后端 |
 | **Zygisk 实现** | Zygisk Next | 匿名内存模式，开启严格卸载策略（与 KSU `kernel_umount` 二选一） |
 | **Hook 框架** | LSPosed（Zygisk） | 仅按需勾选实际模块作用域，严禁将检测器加入 Xposed 模块作用域；配合 **FuseFixer**（仅勾 `媒体存储`）修复零宽字符目录探测 |
-| **应用列表隐藏** | HMA-OSS（Zygisk） | 黑名单模式（覆盖 Root 管理器、全部 Xposed 模块与互扫检测器）；关闭「伪装安装来源」与「不要拦截可疑的 Activity 启动」 |
+| **应用列表隐藏** | HMA-OSS（Zygisk）+ `fgetpriority` | 黑名单模式（覆盖 Root 管理器、全部 Xposed 模块与互扫检测器）；关闭「伪装安装来源」与「不要拦截可疑的 Activity 启动」；配合 `fgetpriority` 辅助模块消除相关侧信道检测 |
 | **密钥证明 / TEE** | Oh My Keymint | `injector` 后端，开启 `mask_strongbox_feature = true`，配置有效未吊销 RKP Keybox；**关闭 PIF 指纹伪装**（保持原生机型指纹以维持 Play Integrity 三绿） |
 
 ## 使用 GitHub Actions 构建
