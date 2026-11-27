@@ -1173,7 +1173,8 @@ runs:
           fi
 
           if grep -Fq 'susfs_security_compute_av_user' ./security/selinux/ss/services.c; then
-            echo "Patching SUSFS selinux_hide in services.c to enforce ReSukiSU backup_sepolicy..."
+            echo "Patching SUSFS selinux_hide in services.c and hooks.c to enforce ReSukiSU backup_sepolicy..."
+            sed -i 's/!strcmp(name, "current") &&[[:space:]]*//' ./security/selinux/hooks.c
             python3 - ./security/selinux/ss/services.c << 'PYEOF'
         import sys
 
@@ -1204,26 +1205,24 @@ runs:
             raise SystemExit("ERROR: old_top not found in services.c")
         src = src.replace(old_top, new_top, 1)
 
-        old_scts = """int security_context_to_sid(const char *scontext, u32 scontext_len, u32 *sid,
-        \t\t\t    gfp_t gfp)
+        old_scts = """int security_context_str_to_sid(const char *scontext, u32 *sid, gfp_t gfp)
         {
-        \treturn security_context_to_sid_core(scontext, scontext_len,
-        \t\t\t\t\t    sid, SECSID_NULL, gfp, 0);
+        \treturn security_context_to_sid(scontext, strlen(scontext),
+        \t\t\t\t       sid, gfp);
         }"""
 
-        new_scts = """int security_context_to_sid(const char *scontext, u32 scontext_len, u32 *sid,
-        \t\t\t    gfp_t gfp)
+        new_scts = """int security_context_str_to_sid(const char *scontext, u32 *sid, gfp_t gfp)
         {
         #ifdef CONFIG_KSU_SUSFS
         \tif (unlikely(current_uid().val >= 10000 && ksu_selinux_hide_running &&
         \t\t     READ_ONCE(backup_sepolicy) && !susfs_is_current_ksu_domain())) {
-        \t\tint b_rc = susfs_check_context_in_backup(scontext, scontext_len, gfp);
+        \t\tint b_rc = susfs_check_context_in_backup(scontext, strlen(scontext), gfp);
         \t\tif (b_rc)
         \t\t\treturn b_rc;
         \t}
         #endif
-        \treturn security_context_to_sid_core(scontext, scontext_len,
-        \t\t\t\t\t    sid, SECSID_NULL, gfp, 0);
+        \treturn security_context_to_sid(scontext, strlen(scontext),
+        \t\t\t\t       sid, gfp);
         }"""
 
         if old_scts not in src:
