@@ -82,6 +82,18 @@
   <img src="assets/verification.jpg" width="360" alt="OnePlus 13 BakaSU + SUSFS 实测截图" />
 </p>
 
+### 实测参考环境与核心配置
+
+| 组件类别 | 选用方案 | 关键模式 / 配置要点 |
+| --- | --- | --- |
+| **Root 框架** | BakaSU（ReSukiSU） | **Built-in（GKI 内建模式）**；开启 `selinux_hide`，关闭 `kernel_umount`（避免与 Zygisk Next 挂载卸载冲突） |
+| **内核级隐藏** | SUSFS v2.4.0 | 开启 `uname` 伪装、`cmdline`（绿锁）伪装、`avc_log_spoofing`、`hide_sus_mnts_for_non_su_procs`；`sus_path` 按需隐藏 `/system_ext/app/SoterService` |
+| **元模块（挂载）** | Hybrid Mount | `overlay` 默认模式 + `ext4` 后端 |
+| **Zygisk 实现** | Zygisk Next | 匿名内存模式，开启严格卸载策略（与 KSU `kernel_umount` 二选一） |
+| **Hook 框架** | LSPosed（Zygisk） | 仅按需勾选实际模块作用域，严禁将检测器加入 Xposed 模块作用域；配合 **FuseFixer**（仅勾 `媒体存储`）修复零宽字符目录探测 |
+| **应用列表隐藏** | HMA-OSS（Zygisk） | 黑名单模式（覆盖 Root 管理器、全部 Xposed 模块与互扫检测器）；关闭「伪装安装来源」与「不要拦截可疑的 Activity 启动」 |
+| **密钥证明 / TEE** | Oh My Keymint | `injector` 后端，开启 `mask_strongbox_feature = true`，配置有效未吊销 RKP Keybox；**关闭 PIF 指纹伪装**（保持原生机型指纹以维持 Play Integrity 三绿） |
+
 ## 使用 GitHub Actions 构建
 
 1. Fork 本仓库，或直接在你自己的 GitHub 仓库中使用。

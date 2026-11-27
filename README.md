@@ -82,6 +82,18 @@ Key engineering modifications maintained in this fork relative to upstream `OneP
   <img src="assets/verification.jpg" width="360" alt="OnePlus 13 BakaSU + SUSFS Verification" />
 </p>
 
+### Reference Module Stack & Configuration
+
+| Layer | Component | Mode & Key Settings |
+| --- | --- | --- |
+| **Root Framework** | BakaSU (ReSukiSU) | **Built-in (GKI)**; enable `selinux_hide`, disable `kernel_umount` (prevents unmount conflicts with Zygisk Next) |
+| **Kernel Stealth** | SUSFS v2.4.0 | Enable `uname` spoofing, `cmdline` (`green`) spoofing, `avc_log_spoofing`, and `hide_sus_mnts_for_non_su_procs`; optionally add `/system_ext/app/SoterService` to `sus_path` on unlocked Qualcomm devices |
+| **Metamodule** | Hybrid Mount | `overlay` default mode with `ext4` backend |
+| **Zygisk** | Zygisk Next | Anonymous memory mode with strict unmount enforcement (do not stack with KSU `kernel_umount`) |
+| **Hook Framework** | LSPosed (Zygisk) | Keep module scopes minimal (never scope detectors); pair with **FuseFixer** (scoped only to `Media Storage`) to block zero-width `/sdcard/Android/data` probes |
+| **App Hiding** | HMA-OSS (Zygisk) | Blacklist mode covering root managers, all Xposed modules, and detectors; disable *Spoof install source* and *Do not block suspicious Activity launches* |
+| **Key Attestation** | Oh My Keymint | `injector` backend with `mask_strongbox_feature = true` and a valid unrevoked RKP keybox; **disable PIF fingerprint spoofing** (keep stock device props for Play Integrity Strong) |
+
 ## Building with GitHub Actions
 
 1. Fork this repository or use it from your own GitHub account.
