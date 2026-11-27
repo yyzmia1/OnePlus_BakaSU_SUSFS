@@ -74,6 +74,14 @@ Key engineering modifications maintained in this fork relative to upstream `OneP
   4. **Privilege-transition invariant**: `security_context_to_sid()` (invoked internally via `security_secctx_to_secid()`) remains intentionally ungated so `transive_to_domain("u:r:ksu:s0", cred)` succeeds prior to `commit_creds()`, keeping manager `RootService` and authorized `su` transitions intact;
   5. **Resident baseline policy**: Patched `ksu_selinux_hide_backup_in_use()` in `selinux_hide_susfs.c` to always return `true`, keeping `backup_sepolicy` resident past `boot-completed` so `selinux_hide` can be toggled dynamically at runtime without hitting `-EAGAIN` or requiring a second reboot.
 
+## Verification
+
+> Tested on OnePlus 13 (`PJZ110`) · Android 16 · Built-in BakaSU `35286` + SUSFS `v2.4.0` (with `CHG-03` applied).
+
+<p align="center">
+  <img src="assets/verification.jpg" width="360" alt="OnePlus 13 BakaSU + SUSFS Verification" />
+</p>
+
 ## Building with GitHub Actions
 
 1. Fork this repository or use it from your own GitHub account.

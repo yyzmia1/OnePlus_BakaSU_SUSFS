@@ -74,6 +74,14 @@
   4. **权限隔离不变式**：保持内核内部入口 `security_context_to_sid()`（供 `security_secctx_to_secid()` 调用）不被拦截，确保应用提权路径 `transive_to_domain("u:r:ksu:s0", cred)` 在 `commit_creds()` 之前正常完成域切换，不影响管理器 `RootService` 与授权应用 `su`；
   5. **常驻基线策略**：将 `selinux_hide_susfs.c` 中 `ksu_selinux_hide_backup_in_use()` 固定返回 `true`，使 `backup_sepolicy` 在 `boot-completed` 后始终常驻内存，支持开机后随时动态开关 `selinux_hide` 即时生效，不再因策略被回收而返回 `-EAGAIN` 或要求二次重启。
 
+## 实测效果
+
+> 测试环境：一加 13（PJZ110）· Android 16 · Built-in BakaSU `35286` + SUSFS `v2.4.0`（含上述 `CHG-03` 补丁）。
+
+<p align="center">
+  <img src="assets/verification.jpg" width="360" alt="OnePlus 13 BakaSU + SUSFS 实测截图" />
+</p>
+
 ## 使用 GitHub Actions 构建
 
 1. Fork 本仓库，或直接在你自己的 GitHub 仓库中使用。
