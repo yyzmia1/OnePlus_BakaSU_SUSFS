@@ -1175,6 +1175,9 @@ runs:
           if grep -Fq 'susfs_security_compute_av_user' ./security/selinux/ss/services.c; then
             echo "Patching SUSFS selinux_hide in services.c and hooks.c to enforce ReSukiSU backup_sepolicy..."
             sed -i 's/!strcmp(name, "current") &&[[:space:]]*//' ./security/selinux/hooks.c
+            if [ -f "$KSU_FOLDER/kernel/feature/selinux_hide/selinux_hide_susfs.c" ]; then
+              sed -i 's/return ksu_selinux_hide_running;/return true;/' "$KSU_FOLDER/kernel/feature/selinux_hide/selinux_hide_susfs.c"
+            fi
             python3 - ./security/selinux/ss/services.c << 'PYEOF'
         import sys
 

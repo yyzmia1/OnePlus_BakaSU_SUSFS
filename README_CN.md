@@ -69,7 +69,7 @@
   2. 在 `susfs_security_compute_av_user()` 中将源/目标上下文及 `tclass` 按符号名映射至 `backup_sepolicy->policydb` 计算访问向量，并固定返回基线序列号 `avd->seqno = 1`；
   3. 在 `security_get_user_sids()` 中按符号名过滤非原厂类型，并在 `security/selinux/hooks.c` 的 `handle_selinux_setprocattr()` 中将校验范围扩展至全部 5 类 `procattr` 属性；
   4. **权限隔离不变式**：保持内核内部入口 `security_context_to_sid()`（供 `security_secctx_to_secid()` 调用）不被拦截，确保应用提权路径 `transive_to_domain("u:r:ksu:s0", cred)` 在 `commit_creds()` 之前正常完成域切换，不影响管理器 `RootService` 与授权应用 `su`。
-- **运行时前提**：BakaSU 在 `boot-completed` 阶段若检测到 `selinux_hide` 未启用，会主动释放 `backup_sepolicy` 以节省内存（此后动态开启将返回 `-EAGAIN`）。因此首次刷入后需在管理器中开启 `selinux_hide`（或执行 `ksud feature set selinux_hide 1 && ksud feature save`）并**重启一次设备**，使 `backup_sepolicy` 在开机阶段保持驻留。
+  5. **常驻基线策略**：将 `selinux_hide_susfs.c` 中 `ksu_selinux_hide_backup_in_use()` 固定返回 `true`，使 `backup_sepolicy` 在 `boot-completed` 后始终常驻内存，支持开机后随时动态开关 `selinux_hide` 即时生效，不再因策略被回收而返回 `-EAGAIN` 或要求二次重启。
 
 ## 使用 GitHub Actions 构建
 
