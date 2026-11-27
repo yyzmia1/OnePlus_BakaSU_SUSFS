@@ -1171,6 +1171,190 @@ runs:
             echo "::error::Failed to remove unsupported ReSukiSU ksu_install_su_fd() call"
             exit 1
           fi
+
+          if grep -Fq 'susfs_security_compute_av_user' ./security/selinux/ss/services.c; then
+            echo "Patching SUSFS selinux_hide in services.c to enforce ReSukiSU backup_sepolicy..."
+            python3 - ./security/selinux/ss/services.c << 'PYEOF'
+        import sys
+
+        path = sys.argv[1]
+        with open(path, "r", encoding="utf-8") as f:
+            src = f.read()
+
+        old_top = """#ifdef CONFIG_KSU_SUSFS
+        extern bool susfs_is_current_ksu_domain(void);
+        extern bool susfs_is_sus_type_rcu(u32 sid);
+        extern void susfs_spoof_avd_allowed_rcu(u32 s_type, u32 t_type, u32 c_type, u32 *avd_allowed);
+        extern struct selinux_state selinux_state;
+        #endif // #ifdef CONFIG_KSU_SUSFS"""
+
+        new_top = """#ifdef CONFIG_KSU_SUSFS
+        #include <linux/cred.h>
+        struct selinux_policy;
+        extern bool susfs_is_current_ksu_domain(void);
+        extern bool susfs_is_sus_type_rcu(u32 sid);
+        extern void susfs_spoof_avd_allowed_rcu(u32 s_type, u32 t_type, u32 c_type, u32 *avd_allowed);
+        extern struct selinux_state selinux_state;
+        extern bool ksu_selinux_hide_running __read_mostly;
+        extern struct selinux_policy *backup_sepolicy;
+        static int susfs_check_context_in_backup(const char *scontext, u32 scontext_len, gfp_t gfp);
+        #endif // #ifdef CONFIG_KSU_SUSFS"""
+
+        if old_top not in src:
+            raise SystemExit("ERROR: old_top not found in services.c")
+        src = src.replace(old_top, new_top, 1)
+
+        old_scts = """int security_context_to_sid(const char *scontext, u32 scontext_len, u32 *sid,
+        \t\t\t    gfp_t gfp)
+        {
+        \treturn security_context_to_sid_core(scontext, scontext_len,
+        \t\t\t\t\t    sid, SECSID_NULL, gfp, 0);
+        }"""
+
+        new_scts = """int security_context_to_sid(const char *scontext, u32 scontext_len, u32 *sid,
+        \t\t\t    gfp_t gfp)
+        {
+        #ifdef CONFIG_KSU_SUSFS
+        \tif (unlikely(current_uid().val >= 10000 && ksu_selinux_hide_running &&
+        \t\t     READ_ONCE(backup_sepolicy) && !susfs_is_current_ksu_domain())) {
+        \t\tint b_rc = susfs_check_context_in_backup(scontext, scontext_len, gfp);
+        \t\tif (b_rc)
+        \t\t\treturn b_rc;
+        \t}
+        #endif
+        \treturn security_context_to_sid_core(scontext, scontext_len,
+        \t\t\t\t\t    sid, SECSID_NULL, gfp, 0);
+        }"""
+
+        if old_scts not in src:
+            raise SystemExit("ERROR: old_scts not found in services.c")
+        src = src.replace(old_scts, new_scts, 1)
+
+        old_ug = """\t\tebitmap_for_each_positive_bit(&role->types, tnode, j) {
+        \t\t\tusercon.type = j + 1;"""
+
+        new_ug = """\t\tebitmap_for_each_positive_bit(&role->types, tnode, j) {
+        #ifdef CONFIG_KSU_SUSFS
+        \t\t\tif (unlikely(current_uid().val >= 10000 && ksu_selinux_hide_running &&
+        \t\t\t\t     READ_ONCE(backup_sepolicy))) {
+        \t\t\t\tstruct selinux_policy *bpol = READ_ONCE(backup_sepolicy);
+        \t\t\t\tconst char *tname = sym_name(policydb, SYM_TYPES, j);
+        \t\t\t\tstruct type_datum *bt = (bpol && tname) ?
+        \t\t\t\t\tsymtab_search(&bpol->policydb.p_types, tname) : NULL;
+        \t\t\t\tif ((!bt || bt->attribute) && !susfs_is_current_ksu_domain())
+        \t\t\t\t\tcontinue;
+        \t\t\t}
+        #endif
+        \t\t\tusercon.type = j + 1;"""
+
+        if old_ug not in src:
+            raise SystemExit("ERROR: old_ug not found in services.c")
+        src = src.replace(old_ug, new_ug, 1)
+
+        old_susfs_tail = """int susfs_security_context_to_sid(const char *scontext, u32 scontext_len, u32 *sid,
+        \t\t\t    gfp_t gfp)
+        {
+        \treturn susfs_security_context_to_sid_core(scontext, scontext_len,
+        \t\t\t\t\t    sid, SECSID_NULL, gfp, 0);
+        }"""
+
+        new_susfs_tail = """static int susfs_check_context_in_backup(const char *scontext, u32 scontext_len, gfp_t gfp)
+        {
+        \tstruct selinux_policy *bpol = READ_ONCE(backup_sepolicy);
+        \tstruct context bctx;
+        \tchar *dup;
+        \tint rc;
+
+        \tif (!scontext_len)
+        \t\treturn -EINVAL;
+        \tif (!bpol || !selinux_initialized())
+        \t\treturn 0;
+        \tdup = kmemdup_nul(scontext, scontext_len, gfp);
+        \tif (!dup)
+        \t\treturn -ENOMEM;
+        \trcu_read_lock();
+        \trc = string_to_context_struct(&bpol->policydb, bpol->sidtab, dup, &bctx, SECSID_NULL);
+        \tif (!rc)
+        \t\tcontext_destroy(&bctx);
+        \trcu_read_unlock();
+        \tkfree(dup);
+        \treturn rc;
+        }
+
+        int susfs_security_context_to_sid(const char *scontext, u32 scontext_len, u32 *sid,
+        \t\t\t    gfp_t gfp)
+        {
+        \tif (likely(READ_ONCE(backup_sepolicy) && !susfs_is_current_ksu_domain())) {
+        \t\tint b_rc = susfs_check_context_in_backup(scontext, scontext_len, gfp);
+        \t\tif (b_rc)
+        \t\t\treturn b_rc;
+        \t}
+        \treturn susfs_security_context_to_sid_core(scontext, scontext_len,
+        \t\t\t\t\t    sid, SECSID_NULL, gfp, 0);
+        }"""
+
+        if old_susfs_tail not in src:
+            raise SystemExit("ERROR: old_susfs_tail not found in services.c")
+        src = src.replace(old_susfs_tail, new_susfs_tail, 1)
+
+        old_av = """\tcontext_struct_compute_av(policydb, scontext, tcontext, tclass, avd,
+        \t\t\t\t  NULL);
+        \tsusfs_spoof_avd_allowed_rcu(scontext->type, tcontext->type, tclass, &avd->allowed);"""
+
+        new_av = """\tif (likely(READ_ONCE(backup_sepolicy) && !susfs_is_current_ksu_domain())) {
+        \t\tstruct selinux_policy *bpol = READ_ONCE(backup_sepolicy);
+        \t\tchar *s_str = NULL, *t_str = NULL;
+        \t\tu32 s_len = 0, t_len = 0;
+        \t\tstruct context b_sctx, b_tctx;
+        \t\tif (bpol &&
+        \t\t    !context_struct_to_string(policydb, scontext, &s_str, &s_len) &&
+        \t\t    !context_struct_to_string(policydb, tcontext, &t_str, &t_len)) {
+        \t\t\tif (!string_to_context_struct(&bpol->policydb, bpol->sidtab, s_str, &b_sctx, SECSID_NULL)) {
+        \t\t\t\tif (!string_to_context_struct(&bpol->policydb, bpol->sidtab, t_str, &b_tctx, SECSID_NULL)) {
+        \t\t\t\t\tu16 b_tclass = tclass;
+        \t\t\t\t\tif (tclass && tclass <= policydb->p_classes.nprim) {
+        \t\t\t\t\t\tconst char *cname = sym_name(policydb, SYM_CLASSES, tclass - 1);
+        \t\t\t\t\t\tstruct class_datum *bcls = cname ?
+        \t\t\t\t\t\t\tsymtab_search(&bpol->policydb.p_classes, cname) : NULL;
+        \t\t\t\t\t\tb_tclass = bcls ? bcls->value : 0;
+        \t\t\t\t\t}
+        \t\t\t\t\tavd_init(bpol, avd);
+        \t\t\t\t\tavd->seqno = 1;
+        \t\t\t\t\tif (ebitmap_get_bit(&bpol->policydb.permissive_map, b_sctx.type))
+        \t\t\t\t\t\tavd->flags |= AVD_FLAGS_PERMISSIVE;
+        \t\t\t\t\tif (unlikely(!b_tclass)) {
+        \t\t\t\t\t\tif (bpol->policydb.allow_unknown)
+        \t\t\t\t\t\t\tavd->allowed = 0xffffffff;
+        \t\t\t\t\t} else {
+        \t\t\t\t\t\tcontext_struct_compute_av(&bpol->policydb, &b_sctx, &b_tctx,
+        \t\t\t\t\t\t\t\t\t  b_tclass, avd, NULL);
+        \t\t\t\t\t}
+        \t\t\t\t\tcontext_destroy(&b_tctx);
+        \t\t\t\t\tcontext_destroy(&b_sctx);
+        \t\t\t\t\tkfree(t_str);
+        \t\t\t\t\tkfree(s_str);
+        \t\t\t\t\tgoto out;
+        \t\t\t\t}
+        \t\t\t\tcontext_destroy(&b_sctx);
+        \t\t\t}
+        \t\t}
+        \t\tkfree(t_str);
+        \t\tkfree(s_str);
+        \t}
+        \tcontext_struct_compute_av(policydb, scontext, tcontext, tclass, avd,
+        \t\t\t\t  NULL);
+        \tsusfs_spoof_avd_allowed_rcu(scontext->type, tcontext->type, tclass, &avd->allowed);"""
+
+        if old_av not in src:
+            raise SystemExit("ERROR: old_av not found in services.c")
+        src = src.replace(old_av, new_av, 1)
+
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(src)
+        echo_msg = "Successfully patched services.c to enforce ReSukiSU backup_sepolicy"
+        print(echo_msg)
+        PYEOF
+          fi
         fi
 
         # SUSFS targets the newer four-argument API, while some OnePlus 5.10
